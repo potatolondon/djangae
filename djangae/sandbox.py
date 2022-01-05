@@ -493,7 +493,7 @@ def activate(sandbox_name, add_sdk_to_path=False, new_env_vars=None, **overrides
     # when you are not running dev_appserver
     import yaml
     with open(os.path.join(project_root, 'app.yaml'), 'r') as app_yaml:
-        app_yaml = yaml.load(app_yaml)
+        app_yaml = yaml.safe_load(app_yaml)
         os.environ['APPENGINE_RUNTIME'] = app_yaml.get('runtime', '')
 
     # Initialize as though `dev_appserver.py` is about to run our app, using all the
