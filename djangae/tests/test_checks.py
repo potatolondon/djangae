@@ -15,7 +15,7 @@ class ChecksTestCase(TestCase):
         # Read and parse app.yaml
         app_yaml_path = os.path.join(get_application_root(), "app.yaml")
         with open(app_yaml_path, 'r') as f:
-            app_yaml = yaml.load(f.read())
+            app_yaml = yaml.safe_load(f.read())
         builtins = app_yaml.get('builtins', [])
 
         # Switch on deferred builtin
