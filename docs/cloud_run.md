@@ -14,10 +14,10 @@ sister project into your application and configure the `DATABASES` setting as de
 Below is a non-exhaustive list of differences between running Djangae on Cloud Run compared to App Engine.
 
 * The emulators for the Cloud Datastore, Tasks and Storage may need to be run as their own container images, rather than started by `manage.py`. 
-* The [incoming `X-Appengine-...` headers(https://cloud.google.com/appengine/docs/standard/python3/reference/request-response-headers) are not sanitised, so cannot be trusted. As such
-  - You should not use `djangae.tasks.deferred` out of the box.
-  - You should not trust `is_in_cron` or `is_in_task` from `djangae.tasks.environment`.
-* With the except of `project_id`, the functions in `djangae.environment` will not behave as expected.
+* The [incoming `X-Appengine-...` headers](https://cloud.google.com/appengine/docs/standard/python3/reference/request-response-headers) are not sanitised, so cannot be trusted. As such:
+    - You should not use `djangae.tasks.deferred` out of the box.
+    - You should not trust `is_in_cron` or `is_in_task` from `djangae.tasks.environment`.
+* With the exception of `project_id`, the functions in `djangae.environment` will not behave as expected.
 * The `/_ah/warmup` view will not be called for starting up new "instances" of your application, as this concept is [not applicable to Cloud Run](https://github.com/ahmetb/cloud-run-faq#do-i-get-warmup-requests-like-in-app-engine).
 
 If you use Djangae on Cloud Run, please consider contributing to this documentation with further details.
