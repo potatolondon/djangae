@@ -61,13 +61,3 @@ App Engine tasks are stored in the Datastore, so when you are in the remote shel
     >>> from my_code import my_function
     >>> from djangae.tasks.deferred import defer
     >>> defer(my_function, arg1, arg2, _queue="queue_name")
-
-
-# Testing
-
-Along with the local/remote sandboxes, Djangae ships with a test sandbox. This should be called explicitly
-from your manage.py when tests are being run. This sandbox sets up the bare minimum to use the Datastore
-connector (the memcache and Datastore stubs only). This prevents accesses to the Datastore from throwing an error
-when you do so outside a test case (e.g. from `settings.py`).
-
-Your tests should setup and teardown a full testbed instance (see `DjangaeDiscoverRunner` and the nose plugin).
