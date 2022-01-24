@@ -47,7 +47,7 @@ This will use your **local** Python code, but all database operations will be pe
 
 Additionally, you can specify the application to run commands against by providing an `--app_id`. Eg
 
-  ./manage.py --sandbox=remote --app_id=myapp shell  # Starts a remote shell with the "myapp" instance
+    ./manage.py --sandbox=remote --app_id=myapp shell  # Starts a remote shell with the "myapp" instance
 
 
 ### Deferring Tasks Remotely

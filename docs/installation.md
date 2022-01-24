@@ -115,7 +115,7 @@ CACHES = {
 }
 ```
 
-# System views
+## System views
 
 Djangae ships handlers for various system functions. To enable them include djangae.urls in your url patterns. E.g.
 
