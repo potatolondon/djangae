@@ -84,7 +84,7 @@ avoids hitting the 10 minute deadline for background tasks.
 This means that callbacks should complete **within a maximum of 30 seconds**. Callbacks that take longer than this could cause the iteration to fail,
 or, more likely, repeatedly retry running the callback on the same instances.
 
-If additional `*args` and/or `**kwargs` are specified, are passed to both `callback` (after the instance) and `finalize`.
+If additional `*args` and/or `**kwargs` are specified, these are passed to both `callback` (after the instance) and `finalize`.
 
 `_shards` is the number of shards to use for processing. If `_delete_marker` is `True` then the Datastore entity that
 tracks complete shards is deleted. If you want to keep these (as a log of sorts) then set this to `False`.
