@@ -27,6 +27,9 @@ to the `start_emulators` function in `manage.py`.
 
 ## Running Commands Remotely
 
+!!! important "This feature has not yet been implemented in the Python 3 version of Djangae"
+    The removal of the built-in `remote_api` feature on the Python 3 runtime means that this feature needs to be rearchitected.
+
 Djangae also lets you run management commands which connect remotely to the Datastore of your deployed App Engine application.  To do this you need to:
 
 Add the `remote_api` built-in to app.yaml, and deploy that change.
@@ -48,6 +51,9 @@ Additionally, you can specify the application to run commands against by providi
 
 
 ### Deferring Tasks Remotely
+
+!!! important "This feature has not yet been implemented in the Python 3 version of Djangae"
+    The removal of the built-in `remote_api` feature on the Python 3 runtime means that this feature needs to be rearchitected.
 
 App Engine tasks are stored in the Datastore, so when you are in the remote shell any tasks that you defer will run on the live application, not locally.  For example:
 
