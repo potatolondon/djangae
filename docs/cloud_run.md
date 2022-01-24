@@ -9,6 +9,7 @@ If you're mostly looking for the Google Cloud Datastore backend to use with the 
 you can simply install the [django-cloud-connectors](https://gitlab.com/potato-oss/google-cloud/django-gcloud-connectors)
 sister project into your application and configure the `DATABASES` setting as described in the
 [Installation](installation.md) section.
+This can be used without installing Djangae, although you'll miss out on all of Djangae's great features.
 
 
 Below is a non-exhaustive list of differences between running Djangae on Cloud Run compared to App Engine.
