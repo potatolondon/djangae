@@ -22,3 +22,5 @@ nav:
 - Commercial Support: commercial_support.md
 - Work with us!: work_with_potato.md
 theme: readthedocs
+markdown_extensions:
+  - admonition
