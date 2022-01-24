@@ -10,20 +10,20 @@ Django management commands run as normal, e.g.
     ./manage.py shell
 
 
-# Local Server Port Configuration
+## Local Server Port Configuration
 
 When you call `runserver` the following ports are used by default:
 
  - The default module (the main webserver) runs on port 8000
- - Additional modules (defined by the `DJANGAE_ADDITIONAL_MODULES` setting) will use sequential ports from 8001
- - The API server runs at port 8010
- - The admin server runs at port 8011
- - The blobstore service (which is used for uploads locally) runs on port 8012
+ - Datastore emulator runs on port 10901
+ - Cloud Tasks emulator runs on port 10908
+ - Cloud Storage emulator runs on port 10911
 
-If you override the base port (e.g. `./manage.py runserver localhost:9000`) then additional modules will use sequential
-ports from 9001+. The admin, api and blobstore ports will remain the same.
+Ports for the Google Cloud service emulators (Datastore, Cloud Tasks, Cloud Storage) will be
+automatically incremented if the default ports (listed above) aren't available.
+The ports can be overridden by passing `datastore_port`, `tasks_port` and `storage_port` (respectively)
+to the `start_emulators` function in `manage.py`.
 
-If any ports are found to be in use, the port number will be incremented until a free one is found.
 
 # Additional modules
 
