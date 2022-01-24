@@ -25,12 +25,6 @@ The ports can be overridden by passing `datastore_port`, `tasks_port` and `stora
 to the `start_emulators` function in `manage.py`.
 
 
-# Additional modules
-
-App Engine apps can be made up of multiple modules (the default being the one defined by app.yaml). If your
-project makes use of additional modules then you can specify a list of yaml file paths in the `DJANGAE_ADDITIONAL_MODULES`
-and these will be forwarded to the dev_appserver when `runserver` is called
-
 ## Running Commands Remotely
 
 Djangae also lets you run management commands which connect remotely to the Datastore of your deployed App Engine application.  To do this you need to:
