@@ -11,12 +11,12 @@ nav:
 - Storage backends: storage.md
 - Background Processing: deferred.md
 - Contrib apps:
-  - Googleauth: googleauth.md
+  - Googleauth: contrib_googleauth.md
   - Search: contrib_search.md
-  - Pagination: pagination.md
-  - Scheduled backups: backup.md
-  - Security: security.md
-  - Thread locking: locking.md
+  - Pagination: contrib_pagination.md
+  - Scheduled backups: contrib_backup.md
+  - Security: contrib_security.md
+  - Thread locking: contrib_locking.md
 - Cloud Run: cloud_run.md
 - Contributing & Testing: contributing.md
 - Commercial Support: commercial_support.md
