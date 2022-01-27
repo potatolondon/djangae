@@ -7,8 +7,8 @@ and some users have already deployed applications to Cloud Run with a bit of ada
 
 If you're mostly looking for the Google Cloud Datastore backend to use with the Django ORM then
 you can simply install the [django-cloud-connectors](https://gitlab.com/potato-oss/google-cloud/django-gcloud-connectors)
-sister project into your application and configure the `DATABASES` setting as described in the
-[Installation](installation.md) section.
+sister project into your application and follow the
+[setup instructions](https://potato-oss.gitlab.io/google-cloud/django-gcloud-connectors/installation/) for that project.
 This can be used without installing Djangae, although you'll miss out on all of Djangae's great features.
 
 
