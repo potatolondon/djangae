@@ -20,5 +20,6 @@ nav:
 - Cloud Run: cloud_run.md
 - Contributing & Testing: contributing.md
 - Commercial Support: commercial_support.md
+- VSCode integration: vscode_integration.md
 - Work with us!: work_with_potato.md
 theme: readthedocs
