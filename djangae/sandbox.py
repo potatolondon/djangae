@@ -56,7 +56,7 @@ def _wait_for_storage(port):
     _wait(port, "Cloud Storage Emulator")
 
 
-def _wait(port, service):
+def _wait(port, service, path=""):
     logger.info("Waiting for %s..." % service)
 
     TIMEOUT = 60.0
@@ -67,7 +67,7 @@ def _wait(port, service):
     failures = 0
     while True:
         try:
-            response = urlopen(f"{SERVICE_PROTOCOL_HOST}:{port}/")
+            response = urlopen(f"{SERVICE_PROTOCOL_HOST}:{port}/{path}")
         except (HTTPError, URLError):
             failures += 1
             time.sleep(1)
