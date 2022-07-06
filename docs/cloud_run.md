@@ -19,5 +19,6 @@ Below is a non-exhaustive list of differences between running Djangae on Cloud R
   - You should not trust `is_in_cron` or `is_in_task` from `djangae.tasks.environment`.
 * With the except of `project_id`, the functions in `djangae.environment` will not behave as expected.
 * The `/_ah/warmup` view will not be called for starting up new "instances" of your application, as this concept is [not applicable to Cloud Run](https://github.com/ahmetb/cloud-run-faq#do-i-get-warmup-requests-like-in-app-engine).
+* In order to get `request.is_secure()` to behave correctly, you will need to add `SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")` to your Django settings.
 
 If you use Djangae on Cloud Run, please consider contributing to this documentation with further details.
