@@ -44,7 +44,6 @@ setup(
     install_requires=[
         'django>=2.2,<=3.3.*',
         'django-gcloud-connectors>=0.3.5',
-        'google-api-python-client>=2.27.0',
         'google-cloud-tasks>=1.5.0,<2.0.0',
         'google-cloud-logging>=2.7.0,<3.0.0',
         'psutil>=5.7.3',
