@@ -1,6 +1,6 @@
 import json
 
-from datetime import timedelta
+from datetime import datetime, timedelta
 from unittest.mock import patch
 
 from django.contrib.auth import REDIRECT_FIELD_NAME
@@ -242,7 +242,7 @@ class OAuthScopesRequiredTests(TestCase):
         self.oauthsession = OAuthUserSession.objects.create(
             id='1' * 21,
             scopes=self._DEFAULT_OAUTH_SCOPES,
-            expires_at=timezone.now() + timedelta(seconds=10)
+            expires_at=datetime.utcnow() + timedelta(seconds=10)
         )
         self.user = User.objects.create_user(
             google_oauth_id=self.oauthsession.pk,

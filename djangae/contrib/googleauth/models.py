@@ -1,3 +1,4 @@
+import datetime
 
 from django.conf import settings
 from django.contrib.auth.base_user import (
@@ -287,7 +288,7 @@ class OAuthUserSession(models.Model):
 
     @property
     def is_valid(self):
-        return timezone.now() < self.expires_at
+        return datetime.datetime.utcnow() < self.expires_at
 
     def refresh(self):
         pass

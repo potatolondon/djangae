@@ -3,8 +3,6 @@ import json
 import logging
 import os
 
-from djangae import environment
-
 from django import shortcuts
 from django.conf import settings
 from django.contrib import auth
@@ -16,9 +14,10 @@ from django.urls import reverse
 from django.utils import timezone
 from google.auth.transport import requests
 from google.oauth2 import id_token
-
 from oauthlib.oauth2.rfc6749.errors import MismatchingStateError
 from requests_oauthlib import OAuth2Session
+
+from djangae import environment
 
 from . import (
     _CLIENT_ID_SETTING,
@@ -67,7 +66,6 @@ def _get_default_scopes():
 
 def _get_oauth_redirect_host_from_settings():
     return getattr(settings, _OAUTH_REDIRECT_HOST, None)
-
 
 def _google_oauth2_session(request, additional_scopes=None, with_scope=True, **kwargs):
     scopes = _get_default_scopes()
@@ -153,20 +151,21 @@ def _calc_expires_at(expires_in):
         Given an expires_in seconds time from
         the Google OAuth2 authentication process,
         this returns an actual datetime of when
-        the expiration is, relative to the current time
+        the expiration is, relative to the current time.
+        This uses a naive UTC datetime since it's what google.oauth2 uses
     """
 
     if not expires_in:
         # Already expired
-        return timezone.now()
+        return datetime.datetime.utcnow()
 
     try:
         expires_in = int(expires_in)
     except (TypeError, ValueError):
-        return timezone.now()
+        return datetime.datetime.utcnow()
 
     expires_in -= _TOKEN_EXPIRATION_GUARD_TIME
-    return timezone.now() + datetime.timedelta(seconds=expires_in)
+    return datetime.datetime.utcnow() + datetime.timedelta(seconds=expires_in)
 
 
 @auth_middleware_exempt
