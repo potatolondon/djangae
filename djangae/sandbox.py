@@ -73,8 +73,9 @@ def _wait(port, service, process):
             if failures > 5:
                 # Only start logging if this becomes persistent
                 if process:
-                    output = (process.stderr.read() or process.stdout.read() or b"").decode("utf8")
-                    logger.warning(output)
+                    output = (process.stderr.read() or process.stdout.read())
+                    if output:
+                        logger.warning(output.decode("utf8"))
                 logger.error("Error connecting to the %s. Retrying..." % service)
             if (datetime.now() - start).total_seconds() > TIMEOUT:
                 raise RuntimeError("Unable to start %s. Please check the logs." % service)
