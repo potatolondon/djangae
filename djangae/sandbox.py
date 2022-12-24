@@ -75,7 +75,7 @@ def _wait(port, service, process):
                 if process:
                     output = (process.stderr.read() or process.stdout.read() or b"").decode("utf8")
                     logger.warning(output)
-                logger.exception("Error connecting to the %s. Retrying..." % service)
+                logger.error("Error connecting to the %s. Retrying..." % service)
             if (datetime.now() - start).total_seconds() > TIMEOUT:
                 raise RuntimeError("Unable to start %s. Please check the logs." % service)
             time.sleep(1)
