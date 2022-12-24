@@ -41,22 +41,22 @@ logger = logging.getLogger(__name__)
 
 def _launch_process(command_line):
     env = os.environ.copy()
-    return subprocess.Popen(command_line.split(" "), env=env)
+    return subprocess.Popen(command_line.split(" "), env=env, stderr=subprocess.PIPE, stdout=subprocess.PIPE)
 
 
 def _wait_for_tasks(port):
     time.sleep(2)  # FIXME: Need to somehow check it's running
 
 
-def _wait_for_datastore(port):
-    _wait(port, "Cloud Datastore Emulator")
+def _wait_for_datastore(port, process):
+    _wait(port, "Cloud Datastore Emulator", process)
 
 
-def _wait_for_storage(port):
-    _wait(port, "Cloud Storage Emulator")
+def _wait_for_storage(port, process):
+    _wait(port, "Cloud Storage Emulator", process)
 
 
-def _wait(port, service):
+def _wait(port, service, process):
     logger.info("Waiting for %s..." % service)
 
     TIMEOUT = 60.0
@@ -73,6 +73,9 @@ def _wait(port, service):
             time.sleep(1)
             if failures > 5:
                 # Only start logging if this becomes persistent
+                if process:
+                    output = (process.stderr.read() or process.stdout.read() or b"").decode("utf8")
+                    logger.warning(output)
                 logger.exception("Error connecting to the %s. Retrying..." % service)
             continue
 
@@ -168,8 +171,8 @@ def start_emulators(
         if not persist_data:
             command += " --no-store-on-disk"
 
-        _ACTIVE_EMULATORS["datastore"] = _launch_process(command)
-        _wait_for_datastore(datastore_port)
+        process = _ACTIVE_EMULATORS["datastore"] = _launch_process(command)
+        _wait_for_datastore(datastore_port, process)
 
     if "tasks" in emulators:
         # If start_emulators is call explicitly passing the Cloud Task emulator port
@@ -231,8 +234,8 @@ def start_emulators(
         if not persist_data:
             command += " --no-store-on-disk"
 
-        _ACTIVE_EMULATORS["storage"] = _launch_process(command)
-        _wait_for_storage(storage_port)
+        process = _ACTIVE_EMULATORS["storage"] = _launch_process(command)
+        _wait_for_storage(storage_port, process)
 
 
 def stop_emulators(emulators=None):
