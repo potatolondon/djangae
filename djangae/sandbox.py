@@ -70,24 +70,21 @@ def _wait(port, service, process):
             response = urlopen(f"{SERVICE_PROTOCOL_HOST}:{port}/")
         except (HTTPError, URLError):
             failures += 1
-            time.sleep(1)
             if failures > 5:
                 # Only start logging if this becomes persistent
                 if process:
                     output = (process.stderr.read() or process.stdout.read() or b"").decode("utf8")
                     logger.warning(output)
                 logger.exception("Error connecting to the %s. Retrying..." % service)
+            if (datetime.now() - start).total_seconds() > TIMEOUT:
+                raise RuntimeError("Unable to start %s. Please check the logs." % service)
+            time.sleep(1)
             continue
 
         if response.status == 200:
             # Give things a second to really boot
             time.sleep(1)
             break
-
-        if (datetime.now() - start).total_seconds() > TIMEOUT:
-            raise RuntimeError("Unable to start %s. Please check the logs." % service)
-
-        time.sleep(1)
 
 
 def _kill_proc_tree(pid, sig=signal.SIGTERM, timeout=None, on_terminate=None):
