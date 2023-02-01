@@ -32,6 +32,7 @@ class PaginatorTests(TestCase):
 
             self.assertFalse(query.called)
             page = paginator.page(1)
+            self.assertTrue(query.called)
             self.assertFalse(page.has_previous())
 
             page = paginator.page(2)
