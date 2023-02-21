@@ -6,7 +6,10 @@ from django.core.exceptions import FieldDoesNotExist
 from django.core.cache import cache
 
 from djangae.contrib.pagination.decorators import _field_name_for_ordering
-from gcloudc.db.backends.datastore.query import extract_ordering
+try:
+    from gcloudc.db.backends.common.query import extract_ordering
+except ImportError:
+    from gcloudc.db.backends.datastore.query import extract_ordering
 
 
 # TODO: it would be nice to be able to define a function which is given the queryset and returns
