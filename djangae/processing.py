@@ -2,14 +2,15 @@ from math import ceil
 from typing import Callable
 
 from django.db.models.query import QuerySet
-try:
-    # This gets moved in gcloudc as part of the Firestore backend implementation
-    from gcloudc.db.backends.datastore.expressions import Scatter
-except ImportError:
-    from gcloudc.db.backends.common.expressions import Scatter
 
 
 def _find_random_keys(queryset: QuerySet, shard_count: int) -> list:
+    try:
+        # This gets moved in gcloudc as part of the Firestore backend implementation
+        from gcloudc.db.backends.datastore.expressions import Scatter
+    except ImportError:
+        from gcloudc.db.backends.common.expressions import Scatter
+
     OVERSAMPLING_FACTOR = 32
 
     return list(
