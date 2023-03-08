@@ -8,8 +8,9 @@ import sys
 import time
 import warnings
 from socket import socket
-from django.db import DatabaseError
 
+from django.conf import settings
+from django.db import DatabaseError
 
 # No SDK imports allowed in module namespace because `./manage.py runserver`
 # imports this before the SDK is added to sys.path. See bugs #899, #1055.
@@ -279,13 +280,16 @@ class memoized(object):
 
 
 def get_client_ip(request):
-    """ Due to GAE hosted being hosted multiple proxies,
-    there's a special way to get client IP address.
-    https://stackoverflow.com/a/4581997/1237919
+    """Code based on django-rest-framework implementation.
+    The concept of configuring the number of expected proxies is also similar to what Flask does:
+    https://werkzeug.palletsprojects.com/en/2.2.x/middleware/proxy_fix/
     """
-    x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
-    if x_forwarded_for:
-        ip = x_forwarded_for.split(',')[0]
+    xff = request.META.get('HTTP_X_FORWARDED_FOR')
+    num_proxies = getattr(settings, 'NUM_PROXIES', None)
+
+    if xff and num_proxies:
+        addrs = xff.split(',')
+        ip = addrs[-min(num_proxies, len(addrs))].strip()
     else:
         ip = request.META.get('REMOTE_ADDR')
     return ip

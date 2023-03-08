@@ -1,7 +1,9 @@
+from unittest.mock import patch
+
 from django.db import models
 from djangae.contrib import sleuth
 from djangae.test import TestCase
-from djangae.utils import get_next_available_port, retry, retry_on_error
+from djangae.utils import get_client_ip, get_next_available_port, retry, retry_on_error
 
 
 class AvailablePortTests(TestCase):
@@ -113,3 +115,35 @@ class RetryTestCase(TestCase):
 
         retry(flakey, 1, 2, c=3)
         retry_on_error()(flakey)(1, 2, c=3)
+
+
+class FakeIpRequest:
+    def __init__(self, xff, remote_addr):
+        self.META = {
+            'HTTP_X_FORWARDED_FOR': xff,
+            'REMOTE_ADDR': remote_addr
+        }
+
+
+class ClientIpTestCase(TestCase):
+
+    def test_1_proxy_default(self):
+        self.assertEqual(get_client_ip(FakeIpRequest('5.5.5.5', '169.254.1.1')), '5.5.5.5')
+
+    def test_missing_xff(self):
+        self.assertEqual(get_client_ip(FakeIpRequest(None, '169.254.1.1')), '169.254.1.1')
+
+    def test_fake_xff(self):
+        self.assertEqual(get_client_ip(FakeIpRequest('bad_guy, 5.5.5.5', '169.254.1.1')), '5.5.5.5')
+
+    @patch('django.conf.settings.NUM_PROXIES', 2)
+    def test_2_proxies_configured(self):
+        self.assertEqual(get_client_ip(FakeIpRequest('0.1.0.2, 169.254.1.1', '169.254.1.1')), '0.1.0.2')
+
+    @patch('django.conf.settings.NUM_PROXIES', None)
+    def test_no_proxies_allowed(self):
+        self.assertEqual(get_client_ip(FakeIpRequest('bad_guy, ignore_me', '5.5.5.5')), '5.5.5.5')
+
+    @patch('django.conf.settings.NUM_PROXIES', 2)
+    def test_proxies_overestimated(self):
+        self.assertEqual(get_client_ip(FakeIpRequest('5.5.5.5', '169.254.1.1')), '5.5.5.5')
