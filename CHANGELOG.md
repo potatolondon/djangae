@@ -39,6 +39,7 @@
 - Add `@task_or_superuser_only` and `@csrf_exempt_if_task`.
 - Allow `defer_iteration_with_finalize` to use different sharding strategy
 - Allow custom callable for `djangae.processing.datastore_key_ranges` to generate random keys
+- Added "firestore" option to available emulators for `start_emulators`.
 
 ### Bug fixes:
 

@@ -1,3 +1,4 @@
+import json
 import logging
 import os
 import psutil
@@ -14,14 +15,15 @@ from urllib.error import (
 from urllib.request import urlopen
 
 from djangae.utils import get_next_available_port, port_is_open
-from djangae.environment import get_application_root
+from djangae.environment import get_application_root, project_id
 
 # This is copied from Django so that we don't import Django, and therefore
 # settings.py before we've got the Datastore etc. up and running
 DJANGO_AUTORELOAD_ENV = 'RUN_MAIN'
 
 _ACTIVE_EMULATORS = {}
-_ALL_EMULATORS = ("datastore", "tasks", "storage")
+_ALL_EMULATORS = ("datastore", "firestore", "tasks", "storage")
+_DEFAULT_EMULATORS = ("datastore", "tasks", "storage")
 
 _DJANGO_DEFAULT_PORT = 8000
 
@@ -29,6 +31,7 @@ SERVICE_HOST = "127.0.0.1"
 SERVICE_PROTOCOL_HOST = f"http://{SERVICE_HOST}"
 
 DEFAULT_DATASTORE_PORT = 10901
+DEFAULT_FIRESTORE_PORT = 8320
 DEFAULT_TASKS_PORT = 10908
 DEFAULT_STORAGE_PORT = 10911
 
@@ -50,6 +53,10 @@ def _wait_for_tasks(port):
 
 def _wait_for_datastore(port):
     _wait(port, "Cloud Datastore Emulator")
+
+
+def _wait_for_firestore(port):
+    _wait(port, "Firestore Emulator")
 
 
 def _wait_for_storage(port):
@@ -110,9 +117,10 @@ def _kill_proc_tree(pid, sig=signal.SIGTERM, timeout=None, on_terminate=None):
 def start_emulators(
     persist_data: bool,
     project_id: str = DEFAULT_PROJECT_ID,
-    emulators: Sequence[str] = _ALL_EMULATORS,
+    emulators: Sequence[str] = _DEFAULT_EMULATORS,
     datastore_port: int = DEFAULT_DATASTORE_PORT,
     datastore_dir: Optional[str] = None,
+    firestore_port: int = DEFAULT_FIRESTORE_PORT,
     tasks_port: int = DEFAULT_TASKS_PORT,
     task_target_port: Optional[int] = None,
     task_queue_yaml: Optional[str] = None,
@@ -170,6 +178,9 @@ def start_emulators(
 
         _ACTIVE_EMULATORS["datastore"] = _launch_process(command)
         _wait_for_datastore(datastore_port)
+
+    if "firestore" in emulators:
+        start_firestore_emulator(project_id, firestore_port)
 
     if "tasks" in emulators:
         # If start_emulators is call explicitly passing the Cloud Task emulator port
@@ -246,6 +257,46 @@ def stop_emulators(emulators=None):
         if name in emulators:
             logger.info('Stopping %s emulator with PID %s', name, process.pid)
             _kill_proc_tree(process.pid)
+
+
+# TODO: how or why is this different/separate to what is done by
+# gcloudc.commands.management.commands.CloudFirestoreRunner ?
+def start_firestore_emulator(project_id, port):
+    if os.environ.get(DJANGO_AUTORELOAD_ENV) == 'true':
+        return
+
+    # TODO: make this configurable so that the auth or other emulator(s) can be added too
+    firebase_data = {
+        "emulators": {
+            "firestore": {
+                "port": str(port),
+                "host": "127.0.0.1",
+            },
+            # "auth": {
+            #     "port": "9099",
+            #     "host": "127.0.0.1",
+            # }
+        }
+    }
+
+    with open("firebase.json", "w") as f:
+        f.write(json.dumps(firebase_data))
+
+    emulators = [x for x in firebase_data["emulators"]]
+
+    command = f"firebase emulators:start --project={project_id} --only=" + (",".join(emulators))
+    print(command)
+
+    # TODO: check the port is available first
+    _ACTIVE_EMULATORS["firestore"] = _launch_process(command)
+    _wait_for_firestore()
+    os.environ["FIRESTORE_EMULATOR_HOST"] = f"localhost:{port}"
+    os.environ["FIRESTORE_PROJECT_ID"] = project_id
+
+    # _ACTIVE_EMULATORS["firestore"] = _launch_process(command)
+    # _wait(9099, "Firebase Auth Service")
+    # os.environ["FIREBASE_AUTH_EMULATOR_HOST"] = "localhost:9099"
+    # os.environ["FIREBASE_AUTH_PROJECT_ID"] = project_id
 
 
 def enable_test_environment_variables():
