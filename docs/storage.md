@@ -13,9 +13,35 @@ To use this you need to [install the `GoogleAppEngineCloudStorageClient` library
 
 * Cloud storage will use the default bucket name `CLOUD_STORAGE_BUCKET` unless specified with `BUCKET_KEY` in your settings.py
 
-You can serve files directly from cloudstorage with the key or you can use the included `djangae.storage.serve_file`
-* serve_file will create a proxy in the blobstore which can then be used to serve the file, this may be more useful for access control.
+### Limitations
+`djangae.storage.CloudStorage` assumes the bucket and the files to be served are public. If that's not the case, the returned file url is not accessible.
 
+### Workaround
+Before you read ahead, a few notes on this workaround:
+- It hasn't been carefully tested in different browsers.
+- The url doesn't work on Firefox (12.0) when using [Enhanced Tracking Protection](https://support.mozilla.org/en-US/kb/enhanced-tracking-protection-firefox-desktop)
+- The url doesn't work in Safari (testd on 16.2) if `Prevent Cross-site tracking` option is enable in `Settings > Privacy`.
+
+GCP storage has different [types of endpoints](https://cloud.google.com/storage/docs/request-endpoints).
+Specifically [Authenticated browser downloads](https://cloud.google.com/storage/docs/request-endpoints) use cookie-based authentication.
+Assuming the current user is authenticated with Google and has appropriate permission to download the object this URLs can be used to serve the files.
+
+```
+from djangae.contrib.common import get_request
+from djangae.environment import default_gcs_bucket_name, is_production_environment
+
+def get_authenticated_url(file):
+    request = get_request()
+    query_string = f"?authuser={request.user.email}" if request.user else ""
+    if (is_production_environment()):
+        return f"https://storage.cloud.google.com/{default_gcs_bucket_name()}/{file.name}{query_string}"
+    else:
+        return file.url
+```
+
+As you can see from the snippet `?authuser={request.user.email}` is added to the url. That is to handle the case where a user is signed in multiple Google accounts in the browser.
+
+Challenges mentioned with the cookies above applies though
 ### Example usage
 
 Images in this model will be publicly accessible and stored in main bucket of application.
