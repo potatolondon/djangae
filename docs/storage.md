@@ -41,7 +41,6 @@ def get_authenticated_url(file):
 
 As you can see from the snippet `?authuser={request.user.email}` is added to the url. That is to handle the case where a user is signed in multiple Google accounts in the browser.
 
-Challenges mentioned with the cookies above applies though
 ### Example usage
 
 Images in this model will be publicly accessible and stored in main bucket of application.
