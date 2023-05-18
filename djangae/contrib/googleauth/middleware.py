@@ -20,6 +20,7 @@ from django.contrib.auth import (
     logout,
 )
 from django.contrib.auth.middleware import AuthenticationMiddleware
+from django.db import router
 from django.http import HttpResponseRedirect
 from django.shortcuts import (
     redirect,
@@ -263,7 +264,8 @@ def local_iap_login_middleware(get_response):
                     if is_superuser:
                         defaults["is_staff"] = True
 
-                    user, _ = User.objects.update_or_create(
+                    user_connection = router.db_for_read(User)
+                    user, _ = User.objects.using(user_connection).update_or_create(
                         email_lower=email.lower(),
                         defaults=defaults,
                     )
