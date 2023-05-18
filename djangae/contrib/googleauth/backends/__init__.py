@@ -8,7 +8,8 @@ from ..models import User
 
 
 def _find_atomic_decorator(model):
-    connection = connections[router.db_for_read(model)]
+    connection_name = router.db_for_read(model)
+    connection = connections[connection_name]
 
     # FIXME: When Django GCloud Connectors gets rid of its own atomic decorator
     # the Django atomic() decorator can be used regardless
@@ -18,6 +19,15 @@ def _find_atomic_decorator(model):
     else:
         from django.db.transaction import atomic
 
+    return atomic_with_defaults(atomic, using=connection_name)
+
+
+def atomic_with_defaults(_atomic, **defaults):
+    """ Curry the given _atomic decorator to pass the given default kwargs. """
+    def atomic(**kwargs):
+        final_kwargs = defaults.copy()
+        final_kwargs.update(kwargs)
+        return _atomic(**final_kwargs)
     return atomic
 
 
