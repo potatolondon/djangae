@@ -1,6 +1,7 @@
 
 from django.contrib.auth import get_user_model
 from django.core.exceptions import ImproperlyConfigured
+from django.db import router
 from django.db.models import Q
 
 from ..models import (
@@ -98,14 +99,16 @@ class OAuthBackend(BaseBackend):
         return is_active or is_active is None
 
     def get_user(self, user_id):
+        user_connection = router.db_for_read(User)
         try:
-            user = User.objects.get(pk=user_id)
+            user = User.objects.using(user_connection).get(pk=user_id)
         except User.DoesNotExist:
             return None
         return user if self.user_can_authenticate(user) else None
 
     def get_user_permissions(self, user_obj, obj=None):
-        qs = UserPermission.objects.filter(
+        connection_name = router.db_for_read(UserPermission)
+        qs = UserPermission.objects.using(connection_name).filter(
             user_id=user_obj.pk
         ).values_list("permission", flat=True)
 
@@ -116,7 +119,8 @@ class OAuthBackend(BaseBackend):
 
     def get_group_permissions(self, user_obj, obj=None):
         perms = set()
-        qs = Group.objects.filter(users__contains=user_obj)
+        connection_name = router.db_for_read(Group)
+        qs = Group.objects.using(connection_name).filter(users__contains=user_obj)
         for group in qs:
             perms.update(group.permissions)
 

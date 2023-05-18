@@ -38,7 +38,8 @@ def _generate_unused_username(ideal):
         one using the ideal username as a base
     """
 
-    if not User.objects.filter(username_lower=ideal.lower()).exists():
+    user_connection = router.db_for_read(User)
+    if not User.objects.using(user_connection).filter(username_lower=ideal.lower()).exists():
         return ideal
 
     exists = True
@@ -48,6 +49,6 @@ def _generate_unused_username(ideal):
     while exists:
         random_digits = "".join([random.choice(string.digits) for x in range(5)])
         username = "%s-%s" % (ideal, random_digits)
-        exists = User.objects.filter(username_lower=username.lower).exists()
+        exists = User.objects..using(user_connection)filter(username_lower=username.lower).exists()
 
     return username
