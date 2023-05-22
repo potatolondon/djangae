@@ -90,6 +90,8 @@ CLOUD_TASKS_QUEUES = [
     }
 ]
 
+NUM_PROXIES = 1
+
 # Point the URL conf at this file
 ROOT_URLCONF = __name__
 

@@ -39,6 +39,13 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 CLOUD_TASKS_LOCATION = tasks_location()
 
 
+# Dy default, GAE uses 1 proxy, and thus there should be 1 IP address in the X-Forwarded-For header.
+# In such a case then, if there is more than 1 address in the header, then all but the last IP address is spoofed.
+# If using IAP, there will be an additional proxy, i.e., NUM_PROXIES = 2.
+# If bypassing nginx in the app.yaml, that will deduct a proxy.
+NUM_PROXIES = 1
+
+
 # Default Django middleware, with the addition of the RequestStorageMiddleware
 # for logging purposes
 MIDDLEWARE = [
