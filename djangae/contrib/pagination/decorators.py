@@ -1,3 +1,4 @@
+import datetime
 import random
 from functools import partial
 
@@ -23,6 +24,11 @@ def generator(fields, instance):
         value = instance._meta.get_field(field.lstrip("-")).value_from_object(instance)
 
         if hasattr(value, "isoformat"):
+            if hasattr(value, "astimezone"):
+                # If value is a naive datetime, it will be assumed to be in local system timezone
+                # when made aware, before converting to utc. That matches Datastore behavior
+                # when using naive datetime.
+                value = value.astimezone(datetime.timezone.utc)
             value = value.isoformat()
 
         value = str(value)
