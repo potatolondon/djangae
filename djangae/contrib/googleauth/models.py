@@ -120,7 +120,9 @@ class AbstractGoogleUser(AbstractBaseUser):
     # If the user was created via OAuth, this is the oauth ID
     google_oauth_id = models.CharField(
         unique=True,
+        blank=True,
         null=True,
+        default=None,
         max_length=21
     )
 
