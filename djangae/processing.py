@@ -3,6 +3,11 @@ from typing import Callable
 
 from django.db.models.query import QuerySet
 
+FIRESTORE_MAX_INT = 2 ** 63 - 1
+# https://github.com/firebase/firebase-js-sdk/blob/4f446f0a1c00f080fb58451b086efa899be97a08/packages/firestore/src/util/misc.ts#L24-L34
+FIRESTORE_KEY_NAME_CHARS = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+FIRESTORE_KEY_NAME_LENGTH = 20
+
 
 def _find_random_keys(queryset: QuerySet, shard_count: int) -> list:
     try:
@@ -92,3 +97,86 @@ def datastore_key_ranges(
         key_ranges = [(None, None)]
 
     return key_ranges
+
+
+def firestore_scattered_int_key_ranges(queryset: QuerySet, shard_count: int) -> list:
+    """ For Firestore, which (at the time of coding this) can't order by PK descending, this
+        provides a crude workaround for getting integer key ranges by simply splitting the maximum
+        possible key range into evenly-sized ranges.
+    """
+    key_ranges = []
+    if shard_count > 1:
+        # TODO: we could make a significant improvement to this by doing some bisection.
+        # Firestore allows __gte/__lte queries, so we could at least narrow down the overall range
+        # by doing a (limited) series of `.filter(__gte/lte=X).exists() queries.
+        min_value = 1
+        max_value = FIRESTORE_MAX_INT
+        step_size = max_value // shard_count  # Avoid float-based precision loss
+        range_end = 0
+        for index, range_start in enumerate(range(min_value, max_value, step_size)):
+            if index + 1 == shard_count:  # Last shard
+                # This both prevents us overshooting and also deals with the missing remainder
+                # for when the max_value doesn't divide by the shard count
+                range_end = max_value
+                key_ranges.append((range_start, range_end))
+                break
+            else:
+                range_end = range_start + step_size -1
+                key_ranges.append((range_start, range_end))
+    else:
+        # Don't shard
+        key_ranges = [(None, None)]
+    return key_ranges
+
+
+def firestore_name_key_ranges(queryset: QuerySet, shard_count: int) -> list:
+    """ For Firestore, which (at the time of coding this) can't order by PK descending, this
+        provides a crude workaround for getting key ranges for its auto-generated string-based keys
+        by simply splitting the maximum possible key range into evenly-sized ranges.
+    """
+    key_ranges = []
+    if shard_count > 1:
+        sorted_chars = sorted(FIRESTORE_KEY_NAME_CHARS)
+        min_value = sorted_chars[0]
+        max_value = sorted_chars[-1] * FIRESTORE_KEY_NAME_LENGTH
+        num_possibile_values = len(FIRESTORE_KEY_NAME_CHARS) ** FIRESTORE_KEY_NAME_LENGTH
+        # This avoids inadequate float precision, but means we might undershoot the size of each
+        # shard. We add any lost range onto the last shard.
+        values_per_shard = num_possibile_values // shard_count
+        for index, start_offset in enumerate(range(0, num_possibile_values, values_per_shard)):
+            end_offset = start_offset + values_per_shard
+            start_string = nth_string(
+                FIRESTORE_KEY_NAME_CHARS, FIRESTORE_KEY_NAME_LENGTH, start_offset
+            )
+            if index + 1 == shard_count:  # Last shard
+                end_string = max_value
+                key_ranges.append((start_string, end_string))
+                break
+            else:
+                end_string = nth_string(
+                    FIRESTORE_KEY_NAME_CHARS, FIRESTORE_KEY_NAME_LENGTH, end_offset
+                )
+                key_ranges.append((start_string, end_string))
+    else:
+        # Don't shard
+        key_ranges = [(None, None)]
+
+    return key_ranges
+
+
+def nth_string(characters: str, length: int, n: int):
+    """ Given a string of the characters which can be used, the length of strings to create, and an
+        integer, return the string which is the nth alphabetical string of all the strings of that
+        length which can be created with those characters.
+    """
+    # Sort the characters
+    sorted_characters = sorted(characters)
+    result = ""
+    if n == 0:
+        return sorted_characters[0]
+    remaining = n - 1
+    for _ in range(length):
+        char_index = remaining % len(characters)
+        result = sorted_characters[char_index] + result
+        remaining = remaining // len(characters)
+    return result

@@ -1,7 +1,17 @@
+import itertools
+import math
+
 import sleuth
 from django.db import models
 
-from djangae.processing import sequential_int_key_ranges
+from djangae.processing import (
+    FIRESTORE_KEY_NAME_CHARS,
+    FIRESTORE_KEY_NAME_LENGTH,
+    FIRESTORE_MAX_INT,
+    firestore_name_key_ranges,
+    firestore_scattered_int_key_ranges,
+    sequential_int_key_ranges,
+)
 from djangae.test import TestCase
 
 
@@ -63,3 +73,48 @@ class ProcessingTestCase(TestCase):
                 self.assertEqual(ranges[1], (-999, -998))
                 self.assertEqual(ranges[-1], (999, 1001))
                 self.assertEqual(len(ranges), 2000)
+
+    def test_firestore_scattered_int_key_ranges(self):
+        queryset = TestModel.objects.all()
+        # For a shard count of 1, we expect no sharding
+        ranges = firestore_scattered_int_key_ranges(queryset, 1)
+        self.assertEqual(ranges, [(None, None)])
+        # For a two shards we expect them to split at the halfway point
+        ranges = firestore_scattered_int_key_ranges(queryset, 2)
+        halfway = math.ceil(FIRESTORE_MAX_INT / 2)
+        expected = [
+            (1, halfway -1),
+            (halfway, FIRESTORE_MAX_INT)
+        ]
+        self.assertEqual(ranges, expected)
+        # For more shards, we'll do some less exact checks
+        for shard_count in (3, 7, 14):
+            ranges = firestore_scattered_int_key_ranges(queryset, shard_count)
+            self.assertEqual(len(ranges), shard_count)
+            # The start/end values should all be in ascending order
+            all_values = list(itertools.chain(ranges))
+            self.assertEqual(all_values, sorted(all_values))
+            # And the start of each range should be 1 more than the end of the previous range
+            previous_range_end = 0
+            for range_start, range_end in ranges:
+                self.assertEqual(range_start, previous_range_end + 1)
+                previous_range_end = range_end
+
+    def test_firestore_name_key_ranges(self):
+        queryset = TestModel.objects.all()
+        # For a shard count of 1, we expect no sharding
+        ranges = firestore_name_key_ranges(queryset, 1)
+        self.assertEqual(ranges, [(None, None)])
+        # Test for various shard counts
+        for shard_count in (3, 7, 14):
+            ranges = firestore_name_key_ranges(queryset, shard_count)
+            self.assertEqual(len(ranges), shard_count)
+            # Check that the first and last strings are the min and max possible values
+            self.assertEqual(ranges[0][0], "0")
+            self.assertEqual(
+                ranges[-1][1],
+                sorted(FIRESTORE_KEY_NAME_CHARS)[-1] * FIRESTORE_KEY_NAME_LENGTH
+            )
+            # The start/end values should all be in ascending order
+            all_values = list(itertools.chain(ranges))
+            self.assertEqual(all_values, sorted(all_values))
