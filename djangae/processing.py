@@ -121,7 +121,7 @@ def firestore_scattered_int_key_ranges(queryset: QuerySet, shard_count: int) -> 
                 key_ranges.append((range_start, range_end))
                 break
             else:
-                range_end = range_start + step_size -1
+                range_end = range_start + step_size - 1
                 key_ranges.append((range_start, range_end))
     else:
         # Don't shard
@@ -137,7 +137,6 @@ def firestore_name_key_ranges(queryset: QuerySet, shard_count: int) -> list:
     key_ranges = []
     if shard_count > 1:
         sorted_chars = sorted(FIRESTORE_KEY_NAME_CHARS)
-        min_value = sorted_chars[0]
         max_value = sorted_chars[-1] * FIRESTORE_KEY_NAME_LENGTH
         num_possibile_values = len(FIRESTORE_KEY_NAME_CHARS) ** FIRESTORE_KEY_NAME_LENGTH
         # This avoids inadequate float precision, but means we might undershoot the size of each

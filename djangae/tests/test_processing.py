@@ -83,7 +83,7 @@ class ProcessingTestCase(TestCase):
         ranges = firestore_scattered_int_key_ranges(queryset, 2)
         halfway = math.ceil(FIRESTORE_MAX_INT / 2)
         expected = [
-            (1, halfway -1),
+            (1, halfway - 1),
             (halfway, FIRESTORE_MAX_INT)
         ]
         self.assertEqual(ranges, expected)
