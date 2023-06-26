@@ -110,11 +110,10 @@ class ProcessingTestCase(TestCase):
             ranges = firestore_name_key_ranges(queryset, shard_count)
             self.assertEqual(len(ranges), shard_count)
             # Check that the first and last strings are the min and max possible values
-            self.assertEqual(ranges[0][0], "0")
-            self.assertEqual(
-                ranges[-1][1],
-                sorted(FIRESTORE_KEY_NAME_CHARS)[-1] * FIRESTORE_KEY_NAME_LENGTH
-            )
+            first_key = sorted(FIRESTORE_KEY_NAME_CHARS)[0] * FIRESTORE_KEY_NAME_LENGTH
+            last_key = sorted(FIRESTORE_KEY_NAME_CHARS)[-1] * FIRESTORE_KEY_NAME_LENGTH
+            self.assertEqual(ranges[0][0], first_key)
+            self.assertEqual(ranges[-1][1], last_key)
             # The start/end values should all be in ascending order
             all_values = list(itertools.chain(ranges))
             self.assertEqual(all_values, sorted(all_values))

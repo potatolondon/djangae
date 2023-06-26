@@ -169,12 +169,12 @@ def nth_string(characters: str, length: int, n: int):
         integer, return the string which is the nth alphabetical string of all the strings of that
         length which can be created with those characters.
     """
+    max_permutations = len(characters) ** length
+    assert n < max_permutations
     # Sort the characters
     sorted_characters = sorted(characters)
     result = ""
-    if n == 0:
-        return sorted_characters[0]
-    remaining = n - 1
+    remaining = n
     for _ in range(length):
         char_index = remaining % len(characters)
         result = sorted_characters[char_index] + result
