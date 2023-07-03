@@ -410,7 +410,9 @@ def _process_shard(marker_id, shard_number, model, query, callback, finalize, ar
                     callback_time
                 )
         else:
-            @get_transaction(model).atomic()
+            atomic = get_transaction(model).atomic
+
+            @atomic()
             def mark_shard_complete():
                 try:
                     marker.refresh_from_db()
@@ -503,8 +505,9 @@ def _generate_shards(
             filter_kwargs["pk__lt"] = end
 
         qs = qs.filter(**filter_kwargs)
+        atomic = get_transaction(model).atomic
 
-        @get_transaction(model).atomic()
+        @atomic()
         def make_shard():
             marker.refresh_from_db()
             marker.shard_count += 1
