@@ -33,11 +33,13 @@ from django.conf import settings
 from django.db import (
     connections,
     models,
+    router,
+    transaction as django_transaction,
 )
 from django.urls import reverse_lazy
 from django.utils import timezone
 from django.utils.encoding import force_str
-from gcloudc.db import transaction
+from gcloudc.db import transaction as datastore_transaction
 from google.api_core import exceptions
 from google.protobuf.timestamp_pb2 import Timestamp
 
@@ -74,6 +76,14 @@ _DEFERRED_SHARD_TIME_LIMIT_IN_SECONDS = (60 * 10) - _CALLBACK_TIME_LIMIT_IN_SECO
 
 
 _local = threading.local()
+
+
+def get_atomic(model):
+    connection = router.db_for_write(model)
+    engine = settings.DATABASES[connection]["ENGINE"]
+    if engine == "gcloudc.db.backends.datastore":
+        return datastore_transaction.atomic(xg=True)
+    return django_transaction.atomic()
 
 
 def get_deferred_shard_index():
@@ -401,7 +411,7 @@ def _process_shard(marker_id, shard_number, model, query, callback, finalize, ar
                     callback_time
                 )
         else:
-            @transaction.atomic(xg=True)
+            @get_atomic(model)
             def mark_shard_complete():
                 try:
                     marker.refresh_from_db()
@@ -495,7 +505,7 @@ def _generate_shards(
 
         qs = qs.filter(**filter_kwargs)
 
-        @transaction.atomic(xg=True)
+        @get_atomic(model)
         def make_shard():
             marker.refresh_from_db()
             marker.shard_count += 1
