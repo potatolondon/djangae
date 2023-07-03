@@ -5,7 +5,6 @@ it suffers from serious bugs, and "ticking timebomb" API decisions. Specifically
 
 - defer(_transactional=True) won't work transactionally if your task > 100kb
 - A working defer() might suddenly start blowing up inside transactions if the task grows > 100kb
-  if you haven't specified xg=True, or you hit the entity group limit
 
 This defer is an adapted version of that one, with the following changes:
 
@@ -33,11 +32,13 @@ from django.conf import settings
 from django.db import (
     connections,
     models,
+    router,
+    transaction as django_transaction,
 )
 from django.urls import reverse_lazy
 from django.utils import timezone
 from django.utils.encoding import force_str
-from gcloudc.db import transaction
+from gcloudc.db import transaction as datastore_transaction
 from google.api_core import exceptions
 from google.protobuf.timestamp_pb2 import Timestamp
 
@@ -74,6 +75,14 @@ _DEFERRED_SHARD_TIME_LIMIT_IN_SECONDS = (60 * 10) - _CALLBACK_TIME_LIMIT_IN_SECO
 
 
 _local = threading.local()
+
+
+def get_transaction(model):
+    connection = router.db_for_write(model)
+    engine = settings.DATABASES[connection]["ENGINE"]
+    if engine == "gcloudc.db.backends.datastore":
+        return datastore_transaction
+    return django_transaction
 
 
 def get_deferred_shard_index():
@@ -401,7 +410,9 @@ def _process_shard(marker_id, shard_number, model, query, callback, finalize, ar
                     callback_time
                 )
         else:
-            @transaction.atomic(xg=True)
+            atomic = get_transaction(model).atomic
+
+            @atomic()
             def mark_shard_complete():
                 try:
                     marker.refresh_from_db()
@@ -494,8 +505,9 @@ def _generate_shards(
             filter_kwargs["pk__lt"] = end
 
         qs = qs.filter(**filter_kwargs)
+        atomic = get_transaction(model).atomic
 
-        @transaction.atomic(xg=True)
+        @atomic()
         def make_shard():
             marker.refresh_from_db()
             marker.shard_count += 1
