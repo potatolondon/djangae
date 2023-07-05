@@ -1,4 +1,6 @@
 
+from datetime import datetime
+import time
 from django.test import LiveServerTestCase
 
 from djangae.tasks import (
@@ -7,7 +9,7 @@ from djangae.tasks import (
     ensure_required_queues_exist,
     get_cloud_tasks_client,
 )
-from google.api_core.exceptions import GoogleAPIError
+from google.api_core.exceptions import GoogleAPIError, NotFound
 
 
 class TaskFailedBehaviour:
@@ -93,12 +95,34 @@ class TestCaseMixin(LiveServerTestCase):
             tasks += [x for x in self.task_client.list_tasks(path)]
         return tasks
 
+    def _wait_on_task(self, task_name, timeout=20):
+        """
+        It waits for a task to be completed.
+        """
+        task = None
+        start = datetime.now()
+        while True:
+            try:
+                task = self.task_client.get_task(task_name)
+                if 300 <= task.last_attempt.response_status.code < 600:
+
+                    raise TaskFailedError(task.name, task.last_attempt.response_status.code,
+                                          original_exception=Exception("Immediate task execution failed"))
+            except NotFound:
+                # If the task in not the queue is completed
+                break
+            delta = datetime.now() - start
+            if delta.total_seconds() > timeout:
+                raise TaskFailedError(task.name, None, original_exception=Exception("Immediate task execution timeout"))
+
+            time.sleep(.1)
+        return task
+
     def process_task_queues(self, queue_name=None, failure_behaviour=TaskFailedBehaviour.RAISE_ERROR):
         queue_names = [q.name for q in self._get_queues(queue_name)]
 
         tasks = self._get_all_tasks_for_queues(queue_names)
         task_failure_counts = {}
-
         while tasks:
             task = tasks.pop(0)
 
@@ -108,16 +132,14 @@ class TestCaseMixin(LiveServerTestCase):
                 # on the live server and it exists so that
                 # local development servers can direct a task
                 # to run on a particular port.
-                response = self.task_client.run_task(task.name + "?port=%s" % self._server_port)
+                self.task_client.run_task(task.name + "?port=%s" % self._server_port)
 
                 # If the returned status wasn't a success then
                 # drop into the except block below to handle the
                 # failure
-                status = response.last_attempt.response_status.code
-                if str(status)[0] != "2":
-                    raise GoogleAPIError("Task returned bad status: %s" % status)
+                self._wait_on_task(task.name)
 
-            except GoogleAPIError as e:
+            except (GoogleAPIError, TaskFailedError) as e:
                 if failure_behaviour == TaskFailedBehaviour.RETRY_TASK:
                     if task.name not in task_failure_counts:
                         task_failure_counts[task.name] = 1
@@ -131,7 +153,7 @@ class TestCaseMixin(LiveServerTestCase):
                     tasks.append(task)  # Add back to the end of the queue
                     continue
                 elif failure_behaviour == TaskFailedBehaviour.RAISE_ERROR:
-                    raise TaskFailedError(task.name, str(e))
+                    raise TaskFailedError(task.name, str(e), original_exception=e)
                 else:
                     # Do nothing, ignore the failure
                     pass
