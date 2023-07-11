@@ -10,13 +10,13 @@ Introduce a process to allow developers to submit RFCs, using git.
 RFCs are a great too to create consensus over tech decisions and beyond.
 
 A lot of times discussions happen in documents, calls, tickets, slack thread and generally get lost, together with their context.
-Even when RFCs are used they are frequently outside of versioning and future developers don't have context of why specific decisions have been taken.
+Even when RFCs are used they are frequently kept outside of code versioning tools, and future developers don't have context of why specific decisions have been taken.
 
 It's pretty common in the industry and specifically in Open Source to have RFCs versioned.
 A documented workflow and templates would encourage Djangae mainters to use RFCs for Djangae.
 
 # Guide-level explanation
-Anytime new big feature, breaking changes, big refactors are introduced, their motivation and suggested implementation should go through a more structure design process through the use of RFCs.
+Anytime new big feature, breaking changes, or big refactors are introduced, their motivation and suggested implementation should go through a more structure design process through the use of RFCs.
 
 # Reference-level explanation
 - Updated the contributing section with infornation over
@@ -33,10 +33,10 @@ Anytime new big feature, breaking changes, big refactors are introduced, their m
 N/A
 
 # Prior art
-This is a pretty common pattern. This has specifically been highly inspired by [Rust workflow](https://github.com/rust-lang/rfcs)
+In-code RFCs are a pretty common pattern. Our version has been highly inspired by the [Rust workflow](https://github.com/rust-lang/rfcs) in particular.
 
 # Unresolved questions
-N/A
+- What happens to other OS packages that we maintain that are highly related to Djangae (e.g. connectors, emulators). Should they follow the same process? Let's try in Djangae first, and we'll see!
 
 # Future possibilities
 N/A

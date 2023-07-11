@@ -1,7 +1,7 @@
 - Feature Name: (fill me in with a unique ident, `my_awesome_feature`)
 - Start Date: (fill me in with today's date, YYYY-MM-DD)
-- RFC PR:
-- Issue:
+- RFC Merge Request:
+- Issues: (link to gitlab or N/A)
 
 # Summary
 [summary]: #summary
