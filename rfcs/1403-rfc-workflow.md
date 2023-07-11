@@ -4,7 +4,7 @@
 - Issue: N/A
 
 # Summary
-Introduce a workflow to allow developers to submit and use git to work on RFCs
+Introduce a process to allow developers to submit RFCs, using git.
 
 # Motivation
 RFCs are a great too to create consensus over tech decisions and beyond.
