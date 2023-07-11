@@ -9,11 +9,11 @@ Introduce a process to allow developers to submit RFCs, using git.
 # Motivation
 RFCs are a great too to create consensus over tech decisions and beyond.
 
-A lot of times discussions happen in documents, calls, tickets, slack thread and generally get lost, together with their context.
-Even when RFCs are used they are frequently kept outside of code versioning tools, and future developers don't have context of why specific decisions have been taken.
+For djangae historically, discussions happen in documents, calls, tickets, slack threads and get easely lost, together with their context.
+Even when RFCs are used they are frequently outside of versioning and future developers don't have context of why specific decisions have been taken.
 
-It's pretty common in the industry and specifically in Open Source to have RFCs versioned.
-A documented workflow and templates would encourage Djangae mainters to use RFCs for Djangae.
+It's pretty common in the industry and specifically in Open Source to have RFCs committed in the repository.
+A documented workflow and templates would encourage Djangae mainteners to use RFCs for Djangae.
 
 # Guide-level explanation
 Anytime new big feature, breaking changes, or big refactors are introduced, their motivation and suggested implementation should go through a more structure design process through the use of RFCs.
