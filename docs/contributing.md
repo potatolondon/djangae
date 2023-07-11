@@ -25,6 +25,8 @@ Many changes, including bug fixes and documentation improvements should be imple
 
 Some changes though are "substantial", and we may ask that these be put through a bit of a design process and produce a consensus among the team and community.
 
+The process and RFCs template used in Djangae has been greatly inspired by the [Rust community](https://github.com/rust-lang/rfcs).
+
 ### When you need to follow this process
 You need to follow this process if you intend to make "substantial" changes to Djangae, or the RFC process itself.
 What constitutes a "substantial" change is easily definable and evolves, but it may include the following:
