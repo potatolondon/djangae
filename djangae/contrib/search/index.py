@@ -103,22 +103,21 @@ def index_document(index_name, document):
             if token is None or token == '':
                 continue
 
-            with transaction.atomic(independent=True):
-                # FIXME: Update occurrances
-                key = TokenFieldIndex.generate_key(
-                    index_name, token, field.attname, document.id, document.revision
-                )
+            # FIXME: Update occurrances
+            key = TokenFieldIndex.generate_key(
+                index_name, token, field.attname, document.id, document.revision
+            )
 
-                obj, _ = TokenFieldIndex.objects.get_or_create(
-                    pk=key,
-                    defaults=dict(
-                        record_id=document.id,
-                        revision=document.revision,
-                        token=token,
-                        index_stats_id=index_name,
-                        field_name=field.attname
-                    )
+            obj, _ = TokenFieldIndex.objects.get_or_create(
+                pk=key,
+                defaults=dict(
+                    record_id=document.id,
+                    revision=document.revision,
+                    token=token,
+                    index_stats_id=index_name,
+                    field_name=field.attname
                 )
+            )
 
 
 class Index(object):
