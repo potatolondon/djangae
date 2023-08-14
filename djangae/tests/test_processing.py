@@ -1,7 +1,7 @@
 import itertools
 import math
 
-import sleuth
+from djangae.contrib import sleuth
 from django.db import models
 
 from djangae.processing import (
