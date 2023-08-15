@@ -171,3 +171,7 @@ Further work is needed to improve the querying to resolve this issue, potential 
 ## Pagination
 
 There is currently no way to paginate results. Patches welcome :)
+
+## Legacy Datastore
+
+Search doesn't fully support  the legacy Datastore or Firestore in Datastore mode using "Optimistic With Entity Groups" concurrency model.
