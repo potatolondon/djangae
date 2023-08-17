@@ -1,8 +1,15 @@
+workflow:
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+    - if: '$CI_COMMIT_REF_NAME == $CI_DEFAULT_BRANCH'
+    - if: '$CI_COMMIT_TAG'
+
 include:
-  - template: Dependency-Scanning.gitlab-ci.yml
-  - template: Security/License-Scanning.gitlab-ci.yml
-  - template: Security/SAST.gitlab-ci.yml
-  - template: Code-Quality.gitlab-ci.yml
+  - template: Jobs/Dependency-Scanning.latest.gitlab-ci.yml
+  - template: Jobs/SAST.latest.gitlab-ci.yml
+  - template: Jobs/License-Scanning.latest.gitlab-ci.yml
+  - template: Jobs/Code-Quality.gitlab-ci.yml
+  - template: Jobs/Secret-Detection.latest.gitlab-ci.yml
 
 code_quality:
   artifacts:
@@ -14,83 +21,37 @@ stages:
  - test
  - publish
 
-prepare:python3.8:
-  stage: prepare
+.prepare-image:
   image: docker:latest
+  stage: prepare
+  interruptible: true
   services:
     - docker:dind
-  variables:
-    GIT_STRATEGY: none  # Prevent cloning
-    DOCKERFILE: >- # Generate a Dockerfile for the build image
-      FROM python:3.8\n
-      SHELL ["/bin/bash", "-c"]\n
-      RUN apt-get update\n
-      RUN apt-get install -y default-jre\n
-      RUN pip install tox\n
-      RUN gcloud version || true\n
-      RUN if [ ! -d "$HOME/google-cloud-sdk/bin" ]; then rm -rf $HOME/google-cloud-sdk; export CLOUDSDK_CORE_DISABLE_PROMPTS=1; curl https://sdk.cloud.google.com | bash; fi\n
-      RUN source /root/google-cloud-sdk/path.bash.inc && gcloud version\n
-      RUN CLOUDSDK_CORE_DISABLE_PROMPTS=1 source /root/google-cloud-sdk/path.bash.inc && gcloud components install cloud-datastore-emulator beta\n
-  before_script:  # Put the variable into a Dockerfile
-     - echo -e $DOCKERFILE > Dockerfile
-     - cat Dockerfile
   script:
-     - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
-     - docker pull $CI_REGISTRY_IMAGE:python3.8 || true
-     - docker build --cache-from $CI_REGISTRY_IMAGE:python3.8 -t $CI_REGISTRY_IMAGE:python3.8 .
-     - docker push $CI_REGISTRY_IMAGE:python3.8
+    - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
+    - docker pull $CI_REGISTRY_IMAGE:$IMAGE || true
+    - docker build --cache-from $CI_REGISTRY_IMAGE:$IMAGE -t $CI_REGISTRY_IMAGE:$IMAGE -f ./docker_images/$IMAGE.dockerfile .
+    - echo $CI_REGISTRY_IMAGE
+    - docker push $CI_REGISTRY_IMAGE:$IMAGE
+  rules:
+      - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+        changes:
+          - docker_images/*
+
+prepare:python3.8:
+  extends: .prepare-image
+  variables:
+    IMAGE: python3.8
 
 prepare:python3.9:
-  stage: prepare
-  image: docker:latest
-  services:
-    - docker:dind
+  extends: .prepare-image
   variables:
-    GIT_STRATEGY: none  # Prevent cloning
-    DOCKERFILE: >- # Generate a Dockerfile for the build image
-      FROM python:3.9\n
-      SHELL ["/bin/bash", "-c"]\n
-      RUN apt-get update\n
-      RUN apt-get install -y default-jre\n
-      RUN pip install tox\n
-      RUN gcloud version || true\n
-      RUN if [ ! -d "$HOME/google-cloud-sdk/bin" ]; then rm -rf $HOME/google-cloud-sdk; export CLOUDSDK_CORE_DISABLE_PROMPTS=1; curl https://sdk.cloud.google.com | bash; fi\n
-      RUN source /root/google-cloud-sdk/path.bash.inc && gcloud version\n
-      RUN CLOUDSDK_CORE_DISABLE_PROMPTS=1 source /root/google-cloud-sdk/path.bash.inc && gcloud components install cloud-datastore-emulator beta\n
-  before_script:  # Put the variable into a Dockerfile
-     - echo -e $DOCKERFILE > Dockerfile
-     - cat Dockerfile
-  script:
-     - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
-     - docker pull $CI_REGISTRY_IMAGE:python3.9 || true
-     - docker build --cache-from $CI_REGISTRY_IMAGE:python3.9 -t $CI_REGISTRY_IMAGE:python3.9 .
-     - docker push $CI_REGISTRY_IMAGE:python3.9
+    IMAGE: python3.9
 
 prepare:python3.10:
-  stage: prepare
-  image: docker:latest
-  services:
-    - docker:dind
+  extends: .prepare-image
   variables:
-    GIT_STRATEGY: none  # Prevent cloning
-    DOCKERFILE: >- # Generate a Dockerfile for the build image
-      FROM python:3.10\n
-      SHELL ["/bin/bash", "-c"]\n
-      RUN apt-get update\n
-      RUN apt-get install -y default-jre\n
-      RUN pip install tox\n
-      RUN gcloud version || true\n
-      RUN if [ ! -d "$HOME/google-cloud-sdk/bin" ]; then rm -rf $HOME/google-cloud-sdk; export CLOUDSDK_CORE_DISABLE_PROMPTS=1; curl https://sdk.cloud.google.com | bash; fi\n
-      RUN source /root/google-cloud-sdk/path.bash.inc && gcloud version\n
-      RUN CLOUDSDK_CORE_DISABLE_PROMPTS=1 source /root/google-cloud-sdk/path.bash.inc && gcloud components install cloud-datastore-emulator beta\n
-  before_script:  # Put the variable into a Dockerfile
-     - echo -e $DOCKERFILE > Dockerfile
-     - cat Dockerfile
-  script:
-     - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
-     - docker pull $CI_REGISTRY_IMAGE:python3.10 || true
-     - docker build --cache-from $CI_REGISTRY_IMAGE:python3.10 -t $CI_REGISTRY_IMAGE:python3.10 .
-     - docker push $CI_REGISTRY_IMAGE:python3.10
+    IMAGE: python3.10
 
 lint:python3:
   image: $CI_REGISTRY_IMAGE:python3.8
@@ -196,9 +157,9 @@ test:python3.10:django4.1:
 build and publish:
   stage: publish
   image: python:3.8
-  when: manual
-  only:
-    - tags
+  rules:
+    - if: $CI_COMMIT_TAG
+      when: manual
   before_script:
     - pip install twine setuptools wheel
     - rm -rf dist
@@ -218,5 +179,5 @@ pages:
   artifacts:
     paths:
     - public
-  only:
-  - master
+  rules:
+    - if: '$CI_COMMIT_REF_NAME == $CI_DEFAULT_BRANCH'
