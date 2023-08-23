@@ -114,12 +114,31 @@ class AppEngineSecurityMiddleware(MiddlewareMixin):
             replace_default_argument(json.dump, 'cls', _JsonEncoderForHtml)
             replace_default_argument(json.dumps, 'cls', _JsonEncoderForHtml)
 
-            # YAML.  The Python tag scheme allows arbitrary code execution:
-            # yaml.load('!!python/object/apply:os.system ["ls"]')
+            # The pyyaml documentation includes a clear warning that loading data
+            # from an untrusted source using pre 6.0 versions of pyyaml, or using
+            # the UnsafeLoader post 6.0, is a potential security risk
+            # (for example you could be exploited for arbitrary code execution)
+            # https://github.com/yaml/pyyaml/wiki/PyYAML-yaml.load(input)-Deprecation
+
+            # To mitigate this footgun we attempt to set the secure loader as
+            # a sensible default IF we can mutate the signature
+            try:
+                replace_default_argument(yaml.load, 'Loader', yaml.loader.SafeLoader)
+            except ApiSecurityException:
+                # we can't patch positional args - which means we're on v6+ which
+                # mitigates the footgun by requiring the caller to specify the loader
+                pass
+
+            try:
+                replace_default_argument(yaml.load_all, 'Loader', yaml.loader.SafeLoader)
+            except ApiSecurityException:
+                # we can't patch positional args - which means we're on v6+ which
+                # mitigates the footgun by requiring the caller to specify the loader
+                pass
+
+            # these functions signature have not changed in v6 and still have a default kwarg
             replace_default_argument(yaml.compose, 'Loader', yaml.loader.SafeLoader)
             replace_default_argument(yaml.compose_all, 'Loader', yaml.loader.SafeLoader)
-            replace_default_argument(yaml.load, 'Loader', yaml.loader.SafeLoader)
-            replace_default_argument(yaml.load_all, 'Loader', yaml.loader.SafeLoader)
             replace_default_argument(yaml.parse, 'Loader', yaml.loader.SafeLoader)
             replace_default_argument(yaml.scan, 'Loader', yaml.loader.SafeLoader)
 
