@@ -40,6 +40,7 @@
 - Allow `defer_iteration_with_finalize` to use different sharding strategy
 - Allow custom callable for `djangae.processing.datastore_key_ranges` to generate random keys
 - Run datastore emulator with firestore-in-datastore mode enabled
+- Update `AppEngineSecurityMiddleware` to support version `6.0`+ of `pyyaml`
 
 ### Bug fixes:
 
