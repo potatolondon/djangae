@@ -35,10 +35,13 @@ from djangae.contrib.googleauth import (
     _GOOG_JWT_ASSERTION_HEADER,
 )
 from djangae.environment import is_production_environment
+from djangae.utils import retry_on_error
 
 from .backends.iap import IAPBackend
 from .backends.oauth2 import OAuthBackend
 from .models import OAuthUserSession
+
+from gcloudc.db.backends.datastore.transaction import TransactionFailedError
 
 _OAUTH_LINK_EXPIRY_SETTING = "GOOGLEAUTH_LINK_OAUTH_SESSION_EXPIRY"
 
@@ -81,7 +84,23 @@ def get_user(request):
 
 
 class AuthenticationMiddleware(AuthenticationMiddleware):
+    # A `retry_on_error` is needed here because few Datastore transactions
+    # might collide in the auth flow.
+    #
+    # Sessions
+    # If multiple concurrent calls hit the server and the Session needs its key to be cycled
+    # we could have contention. Interestingly at the time of adding the retry the collision doesnt come from
+    # [this transaction](https://github.com/django/django/blob/1ac397674b2f64d48e66502a20b9d9ca6bfb579a/django/contrib/sessions/backends/db.py#L85)
+    # (at this point in time GCloudc does not plug into Django transations) but because of
+    # the the Gcloudc INSERT being wrapped in a transacion).
+    #
+    # User
+    # User creation might in the Iap backend authentication method [here](https://gitlab.com/potato-oss/djangae/djangae/-/blob/f791ab9b8047a7ef085500a1fde0bc2e8d67b1e7/djangae/contrib/googleauth/backends/iap.py#L147)
+    # can also create contention.
+    # User also can get updates in particular scenarios.
+    @retry_on_error(_catch=TransactionFailedError, _attempts=10, _initial_wait=200, _max_wait=600)
     def process_request(self, request):
+
         assert hasattr(request, 'session'), (
             "The djangae.contrib.googleauth middleware requires session middleware "
             "to be installed. Edit your MIDDLEWARE%s setting to insert "
