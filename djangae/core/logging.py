@@ -4,71 +4,81 @@ from django.conf import settings
 from django.core.exceptions import ImproperlyConfigured
 
 from google.cloud import logging
-from google.cloud.logging_v2.handlers._helpers import (
-    _DJANGO_TRACE_HEADER,
-    _parse_trace_span,
-)
-from google.cloud.logging_v2.handlers.app_engine import (
-    _TRACE_ID_LABEL,
-    AppEngineHandler,
+from google.cloud.logging_v2.handlers.handlers import (
+    CloudLoggingHandler,
 )
 
 from djangae.contrib.common import get_request
 
 
-_client = None
-_client_lock = threading.Lock()
+_client_store = threading.local()
 
 _DJANGAE_MIDDLEWARE_NAME = "djangae.contrib.common.middleware.RequestStorageMiddleware"
+_DJANGO_XCLOUD_TRACE_HEADER = "HTTP_X_CLOUD_TRACE_CONTEXT"
 
 
-class DjangaeLoggingHandler(AppEngineHandler):
+class DjangaeLoggingHandler(CloudLoggingHandler):
     """
-        This grabs the trace_id from Djangae's request
-        middleware for log grouping
+        This is a logging handler that can be added to your Django logging settings
+        and automatically adds the correct trace and span to your logging records.
+
+        It also adds useful Django related variables to the log record labels. Currently these
+        are:
+
+        - user_id - The primary key of request.user
+        - language_code - The active language
     """
 
     def __init__(self, *args, **kwargs):
-        global _client_lock
-        global _client
+        global _client_store
 
         if _DJANGAE_MIDDLEWARE_NAME not in settings.MIDDLEWARE:
             raise ImproperlyConfigured(
                 "You must install the %s middleware to use the DjangaeLoggingHandler" % _DJANGAE_MIDDLEWARE_NAME
             )
 
-        # We use a lock here to avoid the potential race condition between
-        # checking to see if the client was initialised, and it actually being
-        # initialized.
-        with _client_lock:
-            if not _client:
-                _client = logging.Client()
-                _client.setup_logging()
+        _client_store.client = logging.Client()
+        _client_store.client.setup_logging()
 
-        kwargs.setdefault("client", _client)
+        kwargs.setdefault("client", _client_store.client)
         super().__init__(*args, **kwargs)
 
-    def get_gae_labels(self):
-        gae_labels = {}
+    def fetch_trace_and_span(self, request):
+        """
+            Cloud Logging identifies a request with a "trace id", and a particular
+            service within that request witha "span id". The trace ID is provided to
+            us in a request header. The span id can be whatever we choose, so we use
+            the id() of the request which persists for the lifetime of the request.
 
-        trace_id, _ = self.get_trace_and_span_id_from_djangae()
-        if trace_id is not None:
-            gae_labels[_TRACE_ID_LABEL] = trace_id
+            span_id needs some special formatting though:
 
-        return gae_labels
-
-    def get_trace_and_span_id_from_djangae(self):
-        request = get_request()
-
-        if request is None:
-            return None, None
-
-        # find trace id and span id
-        header = request.META.get(_DJANGO_TRACE_HEADER)
-        trace_id, span_id = _parse_trace_span(header)
-
+            https://cloud.google.com/logging/docs/reference/v2/rest/v2/LogEntry#FIELDS.span_id
+        """
+        trace_id = request.META.get(_DJANGO_XCLOUD_TRACE_HEADER)
+        span_id = str(id(request))[:8]  # First 8 bytes of the request id
+        span_id = bytes(span_id, "ascii").hex()  # Convert to hex, 16 chars long
         return trace_id, span_id
 
+    def fetch_labels(self, request):
+        """
+            Return a dictionary of labels to add to the logging records.
+
+            By default we log the user_id if the user isn't anonymous. Otherwise
+            we log None.
+        """
+
+        from django.utils.translation import get_language  # Inline as logging could be imported early
+
+        return {
+            "user_id": getattr(getattr(request, "user", None), "pk", None),
+            "language_code": get_language()
+        }
+
     def emit(self, record):
-        record.trace, record.span_id = self.get_trace_and_span_id_from_djangae()
+        request = get_request()
+        if request:
+            trace_id, span_id = self.fetch_trace_and_span(request)
+            record._trace = trace_id
+            record._span_id = span_id
+            record._labels = self.fetch_labels(request)
         return super().emit(record)
