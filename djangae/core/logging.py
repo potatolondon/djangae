@@ -38,8 +38,6 @@ class DjangaeLoggingHandler(CloudLoggingHandler):
             )
 
         _client_store.client = logging.Client()
-        _client_store.client.setup_logging()
-
         kwargs.setdefault("client", _client_store.client)
         super().__init__(*args, **kwargs)
 
@@ -69,10 +67,12 @@ class DjangaeLoggingHandler(CloudLoggingHandler):
 
         from django.utils.translation import get_language  # Inline as logging could be imported early
 
-        return {
+        ret = {
             "user_id": getattr(getattr(request, "user", None), "pk", None),
             "language_code": get_language()
         }
+
+        return {k: str(v) for k, v in ret.items()}
 
     def emit(self, record):
         request = get_request()
