@@ -1,5 +1,6 @@
 from math import ceil
 from typing import Callable
+import logging
 
 from django.db.models.query import QuerySet
 
@@ -7,6 +8,8 @@ FIRESTORE_MAX_INT = 2 ** 63 - 1
 # https://github.com/firebase/firebase-js-sdk/blob/4f446f0a1c00f080fb58451b086efa899be97a08/packages/firestore/src/util/misc.ts#L24-L34
 FIRESTORE_KEY_NAME_CHARS = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
 FIRESTORE_KEY_NAME_LENGTH = 20
+
+logger = logging.getLogger(__name__)
 
 
 def _find_random_keys(queryset: QuerySet, shard_count: int) -> list:
@@ -179,3 +182,33 @@ def nth_string(characters: str, length: int, n: int):
         result = sorted_characters[char_index] + result
         remaining = remaining // len(characters)
     return result
+
+
+def iterate_in_chunks(queryset, chunk_size=1000):
+    """ Given a queryset (which will become ordered by pk), return an iterable which will fetch its
+        objects from the DB in batches of `chunk_size`. This is a temporary workaround for the fact
+        that gcloudc doesn't implement Django's chunked fetching of querysets.
+    """
+    if queryset.query.high_mark or queryset.query.low_mark:
+        logger.warning(
+            "Cannot iterate queryset for %s in chunks, as it has already been sliced.",
+            queryset.model
+        )
+        # As this function is a generator, we can't just do `return queryset`
+        yield from queryset
+        return
+
+    queryset = queryset.order_by("pk")
+    last_pk_of_previous_batch = None
+    has_results = True
+    while has_results:
+        has_results = False
+        if last_pk_of_previous_batch is not None:
+            queryset = queryset.filter(pk__gt=last_pk_of_previous_batch)
+        sliced_queryset = queryset[:chunk_size]  # Slicing must not affect `queryset`
+        for obj in sliced_queryset.iterator():
+            has_results = True
+            yield obj
+        if not has_results:
+            return
+        last_pk_of_previous_batch = obj.pk

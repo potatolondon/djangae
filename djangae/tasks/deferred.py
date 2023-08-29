@@ -44,7 +44,7 @@ from google.protobuf.timestamp_pb2 import Timestamp
 
 from djangae.environment import gae_version
 from djangae.models import DeferIterationMarker
-from djangae.processing import datastore_key_ranges
+from djangae.processing import datastore_key_ranges, iterate_in_chunks
 from djangae.utils import retry
 
 from . import (
@@ -387,9 +387,10 @@ def _process_shard(marker_id, shard_number, model, query, callback, finalize, ar
     try:
         qs = model.objects.all()
         qs.query = query
+        qs = qs.order_by("pk")
 
         last_pk = None
-        for instance in qs.order_by("pk"):
+        for instance in iterate_in_chunks(qs):
             last_pk = instance.pk
 
             shard_time = (datetime.now() - start_time).total_seconds()
