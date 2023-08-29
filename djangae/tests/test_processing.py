@@ -10,6 +10,7 @@ from djangae.processing import (
     FIRESTORE_MAX_INT,
     firestore_name_key_ranges,
     firestore_scattered_int_key_ranges,
+    iterate_in_chunks,
     sequential_int_key_ranges,
 )
 from djangae.test import TestCase
@@ -117,3 +118,21 @@ class ProcessingTestCase(TestCase):
             # The start/end values should all be in ascending order
             all_values = list(itertools.chain(ranges))
             self.assertEqual(all_values, sorted(all_values))
+
+    def test_iterate_in_chunks(self):
+        """ Test the `iterate_in_chunks` function. """
+        for _ in range(5):
+            TestModel.objects.create()
+        queryset = TestModel.objects.all()
+        # Test iterating the whole thing with the default chunk size
+        results = [x for x in iterate_in_chunks(queryset)]
+        self.assertEqual(len(results), 5)
+        # Test iterating with a smaller chunk size
+        results = [x for x in iterate_in_chunks(queryset, chunk_size=3)]
+        self.assertEqual(len(results), 5)
+        # Test when there is a limit on the queryset
+        queryset = queryset[:4]
+        results = [x for x in iterate_in_chunks(queryset)]
+        self.assertEqual(len(results), 4)
+        results = [x for x in iterate_in_chunks(queryset, chunk_size=3)]
+        self.assertEqual(len(results), 4)
