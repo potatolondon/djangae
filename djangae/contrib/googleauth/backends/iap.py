@@ -41,7 +41,7 @@ class IAPBackend(BaseBackend):
         atomic = _find_atomic_decorator(User)
         user_id = request.META.get(_GOOG_AUTHENTICATED_USER_ID_HEADER)
         email = request.META.get(_GOOG_AUTHENTICATED_USER_EMAIL_HEADER)
-
+        user_needs_resave = False
         # User not logged in to IAP
         if not user_id or not email:
             return
@@ -120,6 +120,7 @@ class IAPBackend(BaseBackend):
                 if not user.google_iap_id:
                     user.google_iap_id = user_id
                     user.google_iap_namespace = namespace
+                    user_needs_resave = True
                 else:
                     # Should be caught above if this isn't the case
                     assert(user.google_iap_id == user_id)
@@ -127,7 +128,9 @@ class IAPBackend(BaseBackend):
                 # Update the email as it might have changed or perhaps
                 # this user was added through some other means and the
                 # sensitivity of the email differs etc.
-                user.email = email
+                if user.email != email:
+                    user.email = email
+                    user_needs_resave = True
 
                 # If the user doesn't currently have a password, it could
                 # mean that this backend has just been enabled on existing
@@ -136,10 +139,12 @@ class IAPBackend(BaseBackend):
                 # unusable password is set.
                 if not user.password:
                     user.set_unusable_password()
+                    user_needs_resave = True
 
                 # Note we don't update the username, as that may have
                 # been overridden by something post-creation
-                user.save()
+                if user_needs_resave:
+                    user.save()
             else:
                 with atomic():
                     # First time we've seen this user

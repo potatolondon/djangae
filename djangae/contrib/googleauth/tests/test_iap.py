@@ -1,3 +1,4 @@
+import concurrent.futures
 from unittest.mock import (
     ANY,
     patch,
@@ -18,6 +19,21 @@ User = get_user_model()
 urlpatterns = [
     path('', lambda request: HttpResponse('Ok'), name='index')
 ]
+
+
+def authenticate(verify_token_mock, client, google_iap_id=999, user_email='test@example.com'):
+    verify_token_mock.return_value = {
+        'sub': f'auth.example.com:{google_iap_id}',
+        'email': user_email,
+    }
+
+    headers = {
+        'HTTP_X_GOOG_AUTHENTICATED_USER_ID': f'auth.example.com:{google_iap_id}',
+        'HTTP_X_GOOG_AUTHENTICATED_USER_EMAIL': f'auth.example.com:{user_email}',
+        'HTTP_X_GOOG_IAP_JWT_ASSERTION': 'JWT',
+    }
+
+    return client.get("/", **headers)
 
 
 @override_settings(ROOT_URLCONF=__name__, GOOGLEAUTH_IAP_JWT_AUDIENCE="something")
@@ -336,3 +352,44 @@ class IAPAuthenticationTests(TestCase):
         with sleuth.watch("djangae.contrib.googleauth.middleware.login") as login:
             self.client.get("/", **headers)
             self.assertTrue(login.called)
+
+    @patch('djangae.contrib.googleauth.backends.iap.id_token.verify_token')
+    def test_concurrent_authenticate_new_user(self, verify_token_mock):
+        concurrent_writes = 5
+        futures = []
+
+        with concurrent.futures.ThreadPoolExecutor(max_workers=concurrent_writes) as executor:
+            for _ in range(concurrent_writes):
+                futures.append(executor.submit(authenticate, verify_token_mock, self.client))
+        concurrent.futures.wait(futures)
+
+        auth_results = [future.result() for future in futures]
+
+        [self.assertEqual(r.status_code, 200) for r in auth_results]
+
+    @patch('djangae.contrib.googleauth.backends.iap.id_token.verify_token')
+    def test_concurrent_authenticate_existing_iap_user(self, verify_token_mock):
+        google_iap_id = 10
+        email = 'an_existing_user@example.com'
+        User.objects.create(
+            email=email,
+            google_iap_id=google_iap_id,
+            password='a_password'
+
+        )
+
+        self.assertGreater(len(User.objects.filter(google_iap_id=google_iap_id)), 0)
+
+        concurrent_writes = 10
+        futures = []
+
+        with concurrent.futures.ThreadPoolExecutor(max_workers=concurrent_writes) as executor:
+            for _ in range(concurrent_writes):
+                futures.append(
+                    executor.submit(authenticate, verify_token_mock, self.client,
+                                    google_iap_id=google_iap_id, user_email=email))
+        concurrent.futures.wait(futures)
+
+        auth_results = [future.result() for future in futures]
+
+        [self.assertEqual(r.status_code, 200) for r in auth_results]
