@@ -62,7 +62,7 @@ class DjangaeLoggingHandler(CloudLoggingHandler):
         """
 
         return {
-            "user_id": None if request.user.is_anonymous else request.user.pk
+            "user_id": None if request.user.is_anonymous else getattr(request.user, "pk", None)
         }
 
     def emit(self, record):
