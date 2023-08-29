@@ -89,15 +89,15 @@ class AuthenticationMiddleware(AuthenticationMiddleware):
     #
     # Sessions
     # If multiple concurrent calls hit the server and the Session needs its key to be cycled
-    # we could have contention. Interestingly at the time of adding the retry the collision doesnt come from
+    # we could have contention. Interestingly at the time of adding the retry the collision doesn't come from
     # [this transaction](https://github.com/django/django/blob/1ac397674b2f64d48e66502a20b9d9ca6bfb579a/django/contrib/sessions/backends/db.py#L85)
-    # (at this point in time GCloudc does not plug into Django transations) but because of
-    # the the Gcloudc INSERT being wrapped in a transacion).
+    # (at this point in time GCloudc does not plug into Django transations) but happens because of
+    # the the Gcloudc INSERTd being wrapped in a transaction).
     #
     # User
-    # User creation might in the Iap backend authentication method [here](https://gitlab.com/potato-oss/djangae/djangae/-/blob/f791ab9b8047a7ef085500a1fde0bc2e8d67b1e7/djangae/contrib/googleauth/backends/iap.py#L147)
+    # User creation might in the IAP backend authentication method [here](https://gitlab.com/potato-oss/djangae/djangae/-/blob/f791ab9b8047a7ef085500a1fde0bc2e8d67b1e7/djangae/contrib/googleauth/backends/iap.py#L147)
     # can also create contention.
-    # User also can get updates in particular scenarios.
+    # User also can get updates in particular scenarios (see the IAP backend) leading to contention.
     @retry_on_error(_catch=TransactionFailedError, _attempts=10, _initial_wait=200, _max_wait=600)
     def process_request(self, request):
 
