@@ -2,6 +2,9 @@ import logging
 
 from django.conf import settings
 from django.contrib.auth import get_user_model
+from django.contrib.auth.hashers import (
+    make_password
+)
 from django.core.exceptions import (
     ImproperlyConfigured,
     SuspiciousOperation,
@@ -152,10 +155,9 @@ class IAPBackend(BaseBackend):
                         google_iap_id=user_id,
                         google_iap_namespace=namespace,
                         email=email,
-                        username=_generate_unused_username(username)
+                        username=_generate_unused_username(username),
+                        password=make_password(None),
                     )
-                    user.set_unusable_password()
-                    user.save()
 
         return user
 
