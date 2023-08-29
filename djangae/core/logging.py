@@ -19,8 +19,14 @@ _DJANGO_XCLOUD_TRACE_HEADER = "HTTP_X_CLOUD_TRACE_CONTEXT"
 
 class DjangaeLoggingHandler(CloudLoggingHandler):
     """
-        This grabs the trace_id from Djangae's request
-        middleware for log grouping
+        This is a logging handler that can be added to your Django logging settings
+        and automatically adds the correct trace and span to your logging records.
+
+        It also adds useful Django related variables to the log record labels. Currently these
+        are:
+
+        - user_id - The primary key of request.user
+        - language_code - The active language
     """
 
     def __init__(self, *args, **kwargs):
@@ -61,8 +67,11 @@ class DjangaeLoggingHandler(CloudLoggingHandler):
             we log None.
         """
 
+        from django.utils.translation import get_language  # Inline as logging could be imported early
+
         return {
-            "user_id": None if request.user.is_anonymous else getattr(request.user, "pk", None)
+            "user_id": getattr(getattr(request, "user", None), "pk", None),
+            "language_code": get_language()
         }
 
     def emit(self, record):
