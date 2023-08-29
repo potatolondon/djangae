@@ -210,5 +210,5 @@ def iterate_in_chunks(queryset, chunk_size=1000):
             has_results = True
             yield obj
         if not has_results:
-            break
+            return
         last_pk_of_previous_batch = obj.pk
