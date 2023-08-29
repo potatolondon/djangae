@@ -68,12 +68,11 @@ class DjangaeLoggingHandler(CloudLoggingHandler):
         from django.utils.translation import get_language  # Inline as logging could be imported early
 
         ret = {
-            "user_id": getattr(getattr(request, "user", None), "pk", ""),
+            "user_id": getattr(getattr(request, "user", None), "pk", None),
             "language_code": get_language()
         }
 
-        # Ensure values aren't None
-        return {k: "" if v is None else v for k, v in ret.items()}
+        return {k: str(v) for k, v in ret.items()}
 
     def emit(self, record):
         request = get_request()
