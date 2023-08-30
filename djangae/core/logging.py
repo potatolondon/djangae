@@ -6,6 +6,7 @@ from django.core.exceptions import ImproperlyConfigured
 from django.utils.functional import SimpleLazyObject
 
 from google.cloud import logging
+from google.cloud.logging_v2.handlers._monitored_resources import detect_resource
 from google.cloud.logging_v2.handlers.handlers import (
     CloudLoggingHandler,
     EXCLUDED_LOGGER_DEFAULTS,
@@ -16,8 +17,8 @@ from djangae.contrib.common import get_request
 
 _client_store = threading.local()
 
+_CLEAR_HANDLER_RESOURCE_TYPES = ("gae_app", "cloud_function")
 _DJANGAE_MIDDLEWARE_NAME = "djangae.contrib.common.middleware.RequestStorageMiddleware"
-
 _DJANGO_TRACEPARENT = "HTTP_TRACEPARENT"
 _DJANGO_XCLOUD_TRACE_HEADER = "HTTP_X_CLOUD_TRACE_CONTEXT"
 
@@ -106,8 +107,23 @@ class DjangaeLoggingHandler(CloudLoggingHandler):
                 "You must install the %s middleware to use the DjangaeLoggingHandler" % _DJANGAE_MIDDLEWARE_NAME
             )
 
+        # If there's no thread-local client, we create one and do some setup
         if not getattr(_client_store, "client", None):
             _client_store.client = logging.Client()
+
+            logger = logging.getLogger()
+
+            # remove built-in handlers on App Engine or Cloud Functions environments
+            if detect_resource().type in _CLEAR_HANDLER_RESOURCE_TYPES:
+                logger.handlers.clear()
+
+            # Google Logging profiles a list of loggers to ignore
+            # as they are internal. Ideally this would be configured
+            # in the Django logging setup but that just makes it a hassle for
+            # users.
+            for logger_name in EXCLUDED_LOGGER_DEFAULTS:
+                logger = logging.getLogger(logger_name)
+                logger.propagate = False
 
         kwargs.setdefault("client", _client_store.client)
         super().__init__(*args, **kwargs)
@@ -143,7 +159,7 @@ class DjangaeLoggingHandler(CloudLoggingHandler):
 
         from django.utils.translation import get_language  # Inline as logging could be imported early
 
-        user = getattr(request, "user")
+        user = getattr(request, "user", None)
 
         # We can't evaluate a user here if it's not already been evaluated
         # or bad things happen (circular dependency stuff) so we log "???"
@@ -161,14 +177,6 @@ class DjangaeLoggingHandler(CloudLoggingHandler):
         return {k: str(v) for k, v in ret.items()}
 
     def emit(self, record):
-        # Google Logging profiles a list of loggers to ignore
-        # as they are internal. Ideally this would be configured
-        # in the Django logging setup but that just makes it a hassle for
-        # users.
-        for logger in EXCLUDED_LOGGER_DEFAULTS:
-            if record.name.startswith(logger):
-                return
-
         request = get_request()
         if request:
             trace_id, span_id, trace_sampled = self.fetch_trace_and_span(request)
