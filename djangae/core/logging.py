@@ -3,6 +3,7 @@ import threading
 
 from django.conf import settings
 from django.core.exceptions import ImproperlyConfigured
+from django.utils.functional import SimpleLazyObject
 
 from google.cloud import logging
 from google.cloud.logging_v2.handlers.handlers import (
@@ -142,8 +143,18 @@ class DjangaeLoggingHandler(CloudLoggingHandler):
 
         from django.utils.translation import get_language  # Inline as logging could be imported early
 
+        user = getattr(request, "user")
+
+        # We can't evaluate a user here if it's not already been evaluated
+        # or bad things happen (circular dependency stuff) so we log "???"
+        # to indicate there is a user of some sort, but we can't get its ID
+        if isinstance(user, SimpleLazyObject):
+            user_id = "???"
+        else:
+            user_id = getattr(user, "pk", None)
+
         ret = {
-            "user_id": getattr(getattr(request, "user", None), "pk", None),
+            "user_id": user_id,
             "language_code": get_language()
         }
 
