@@ -18,12 +18,16 @@ class RequestStorageMiddleware(MiddlewareMixin):
         Use get_request() to access the request object.
     """
 
-    def process_request(self, request):
+    def __init__(self, *args, **kwargs):
         # Wipe the request when it's completed (process_response happens too early)
-        # we set dispatch_uid so this will only connect once
+        # we set dispatch_uid so this will only connect once even if the middleware
+        # is reconstructed
         request_finished.connect(
             wipe_request,
             dispatch_uid="request_storage_middleware"
         )
 
+        super().__init__(*args, **kwargs)
+
+    def process_request(self, request):
         _thread_locals.request = request
