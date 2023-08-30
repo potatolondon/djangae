@@ -190,4 +190,5 @@ class DjangaeLoggingHandler(CloudLoggingHandler):
             record._trace_sampled_str = "true" if record._trace_sampled else "false"
             record._labels.update(self.fetch_labels(request))
             record._labels_str = json.dumps(record._labels or {}, ensure_ascii=False)
+        record._labels.update({"test": "test"})
         return super().emit(record)
