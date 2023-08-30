@@ -165,7 +165,7 @@ class DjangaeLoggingHandler(CloudLoggingHandler):
 
         user = getattr(request, "user", None)
         user_id = ""
-        if user:
+        if user is not None:
             # This takes a little explaining...
             #
             # request.user is often a SimpleLazyObject and not an
