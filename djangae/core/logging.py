@@ -1,5 +1,6 @@
 import re
 import threading
+import json
 
 from django.conf import settings
 from django.core.exceptions import ImproperlyConfigured
@@ -182,7 +183,11 @@ class DjangaeLoggingHandler(CloudLoggingHandler):
         if request:
             trace_id, span_id, trace_sampled = self.fetch_trace_and_span(request)
             record._trace = trace_id
+            record._trace_str = record._trace or ""
             record._span_id = span_id
+            record._span_id_str = span_id or ""
             record._trace_sampled = trace_sampled
+            record._trace_sampled_str = "true" if record._trace_sampled else "false"
             record._labels.update(self.fetch_labels(request))
+            record._labels_str = json.dumps(record._labels or {}, ensure_ascii=False)
         return super().emit(record)
