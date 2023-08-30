@@ -172,8 +172,8 @@ class DjangaeLoggingHandler(CloudLoggingHandler):
         request = get_request()
         if request:
             trace_id, span_id, trace_sampled = self.fetch_trace_and_span(request)
-            record.trace = trace_id
-            record.span_id = span_id
-            record.trace_sampled = trace_sampled
-            record.labels = self.fetch_labels(request)
+            record._trace = trace_id
+            record._span_id = span_id
+            record._trace_sampled = trace_sampled
+            record._labels.update(self.fetch_labels(request))
         return super().emit(record)
