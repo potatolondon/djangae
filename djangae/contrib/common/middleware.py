@@ -1,9 +1,15 @@
 from djangae.contrib.common import _thread_locals
+from django.core.signals import request_finished
+
 
 try:
     from django.utils.deprecation import MiddlewareMixin
 except ImportError:
     MiddlewareMixin = object
+
+
+def wipe_request(*args, **kwargs):
+    _thread_locals.request = None
 
 
 class RequestStorageMiddleware(MiddlewareMixin):
@@ -13,15 +19,11 @@ class RequestStorageMiddleware(MiddlewareMixin):
     """
 
     def process_request(self, request):
+        # Wipe the request when it's completed (process_response happens too early)
+        # we set dispatch_uid so this will only connect once
+        request_finished.connect(
+            wipe_request,
+            dispatch_uid="request_storage_middleware"
+        )
+
         _thread_locals.request = request
-
-    def process_response(self, request, response):
-        # Wipe out the request so that if the following request to this
-        # instance doesn't call the middleware (e.g. deferred tasks) we
-        # don't end up with randomness
-        _thread_locals.request = None
-        return response
-
-    def process_exception(self, request, exception):
-        _thread_locals.request = None
-        return None  # Allow default exception handling to take over
