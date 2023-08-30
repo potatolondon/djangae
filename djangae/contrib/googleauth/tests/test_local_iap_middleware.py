@@ -151,4 +151,6 @@ class LocalIAPMiddlewareTests(TestCase):
 
         concurrent.futures.wait(futures)
 
+        [print(f.result().content) for f in futures]
+
         [self.assertEqual(f.result().status_code, 200) for f in futures]
