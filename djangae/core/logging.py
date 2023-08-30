@@ -7,6 +7,7 @@ from django.core.exceptions import ImproperlyConfigured
 from google.cloud import logging
 from google.cloud.logging_v2.handlers.handlers import (
     CloudLoggingHandler,
+    EXCLUDED_LOGGER_DEFAULTS,
 )
 
 from djangae.contrib.common import get_request
@@ -149,6 +150,13 @@ class DjangaeLoggingHandler(CloudLoggingHandler):
         return {k: str(v) for k, v in ret.items()}
 
     def emit(self, record):
+        # Google Logging profiles a list of loggers to ignore
+        # as they are internal. Ideally this would be configured
+        # in the Django logging setup but that just makes it a hassle for
+        # users.
+        if record.name in EXCLUDED_LOGGER_DEFAULTS:
+            return
+
         request = get_request()
         if request:
             trace_id, span_id, trace_sampled = self.fetch_trace_and_span(request)
