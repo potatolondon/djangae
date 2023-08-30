@@ -165,8 +165,9 @@ class DjangaeLoggingHandler(CloudLoggingHandler):
         # as they are internal. Ideally this would be configured
         # in the Django logging setup but that just makes it a hassle for
         # users.
-        if record.name in EXCLUDED_LOGGER_DEFAULTS:
-            return
+        for logger in EXCLUDED_LOGGER_DEFAULTS:
+            if record.name.startswith(logger):
+                return
 
         request = get_request()
         if request:
