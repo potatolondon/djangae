@@ -187,8 +187,10 @@ class DjangaeLoggingHandler(CloudLoggingHandler):
                 user_id = getattr(user, "pk", None)
 
         ret = {
-            "user_id": user_id,
-            "language_code": get_language()
+            "django_user_id": user_id,
+            "django_language_code": get_language(),
+            "django_remote_addr": request.META.get("REMOTE_ADDR", ""),
+            "django_url_name": request.resolver_match.url_name if request.resolver_match else "",
         }
 
         return {k: str(v) for k, v in ret.items()}
