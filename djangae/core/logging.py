@@ -5,6 +5,7 @@ from django.conf import settings
 from django.core.exceptions import ImproperlyConfigured
 from django.utils.functional import SimpleLazyObject
 
+from logging import getLogger
 from google.cloud import logging
 from google.cloud.logging_v2.handlers._monitored_resources import detect_resource
 from google.cloud.logging_v2.handlers.handlers import (
@@ -111,7 +112,7 @@ class DjangaeLoggingHandler(CloudLoggingHandler):
         if not getattr(_client_store, "client", None):
             _client_store.client = logging.Client()
 
-            logger = logging.getLogger()
+            logger = getLogger()
 
             # remove built-in handlers on App Engine or Cloud Functions environments
             if detect_resource().type in _CLEAR_HANDLER_RESOURCE_TYPES:
@@ -122,7 +123,7 @@ class DjangaeLoggingHandler(CloudLoggingHandler):
             # in the Django logging setup but that just makes it a hassle for
             # users.
             for logger_name in EXCLUDED_LOGGER_DEFAULTS:
-                logger = logging.getLogger(logger_name)
+                logger = getLogger(logger_name)
                 logger.propagate = False
 
         kwargs.setdefault("client", _client_store.client)
