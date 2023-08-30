@@ -1,21 +1,22 @@
+import copy
+import json
 import re
 import threading
-import json
+from logging import getLogger
 
 from django.conf import settings
 from django.core.exceptions import ImproperlyConfigured
 from django.utils.functional import SimpleLazyObject
-
-from logging import getLogger
 from google.cloud import logging
-from google.cloud.logging_v2.handlers._monitored_resources import detect_resource
+from google.cloud.logging_v2.handlers._monitored_resources import (
+    detect_resource,
+)
 from google.cloud.logging_v2.handlers.handlers import (
-    CloudLoggingHandler,
     EXCLUDED_LOGGER_DEFAULTS,
+    CloudLoggingHandler,
 )
 
 from djangae.contrib.common import get_request
-
 
 _client_store = threading.local()
 
@@ -159,17 +160,31 @@ class DjangaeLoggingHandler(CloudLoggingHandler):
             we log None.
         """
 
-        from django.utils.translation import get_language  # Inline as logging could be imported early
+        from django.utils.translation import \
+            get_language  # Inline as logging could be imported early
 
         user = getattr(request, "user", None)
-
-        # We can't evaluate a user here if it's not already been evaluated
-        # or bad things happen (circular dependency stuff) so we log "???"
-        # to indicate there is a user of some sort, but we can't get its ID
-        if isinstance(user, SimpleLazyObject):
-            user_id = "???"
-        else:
-            user_id = getattr(user, "pk", None)
+        user_id = ""
+        if user:
+            # This takes a little explaining...
+            #
+            # request.user is often a SimpleLazyObject and not an
+            # actual User. We can't evaluate (i.e. db fetch) a lazy object
+            # because that will likely log, and cause a circular problem here
+            # so we need to check if the SimpleLazyObject has been evaluated before
+            # we access its attributes.
+            #
+            # There is no "has_been_evaluated" type property on a lazy object though,
+            # so how can we tell?
+            #
+            # Well apparently the SimpleLazyObject.__copy__ operator will return a copy
+            # of the wrapped object (e.g. User) if it's been evaluated, and it will return
+            # another SimpleLazyObject if it hasn't. Hence the copy here.
+            user = copy.copy(user)
+            if isinstance(user, SimpleLazyObject):
+                user_id = "???"
+            else:
+                user_id = getattr(user, "pk", None)
 
         ret = {
             "user_id": user_id,
