@@ -1,11 +1,17 @@
+import re
 import threading
+import json
 
 from django.conf import settings
 from django.core.exceptions import ImproperlyConfigured
+from django.utils.functional import SimpleLazyObject
 
+from logging import getLogger
 from google.cloud import logging
+from google.cloud.logging_v2.handlers._monitored_resources import detect_resource
 from google.cloud.logging_v2.handlers.handlers import (
     CloudLoggingHandler,
+    EXCLUDED_LOGGER_DEFAULTS,
 )
 
 from djangae.contrib.common import get_request
@@ -13,8 +19,74 @@ from djangae.contrib.common import get_request
 
 _client_store = threading.local()
 
+_CLEAR_HANDLER_RESOURCE_TYPES = ("gae_app", "cloud_function")
 _DJANGAE_MIDDLEWARE_NAME = "djangae.contrib.common.middleware.RequestStorageMiddleware"
+_DJANGO_TRACEPARENT = "HTTP_TRACEPARENT"
 _DJANGO_XCLOUD_TRACE_HEADER = "HTTP_X_CLOUD_TRACE_CONTEXT"
+
+
+# This function is from google.cloud.logging but is a private method so we've moved
+# it here for safety
+def _parse_trace_parent(header):
+    """Given a w3 traceparent header, extract the trace and span ids.
+    For more information see https://www.w3.org/TR/trace-context/
+
+    Args:
+        header (str): the string extracted from the traceparent header
+            example: 00-0af7651916cd43dd8448eb211c80319c-b7ad6b7169203331-01
+    Returns:
+        Tuple[Optional[dict], Optional[str], bool]:
+            The trace_id, span_id and trace_sampled extracted from the header
+            Each field will be None if header can't be parsed in expected format.
+    """
+    trace_id = span_id = None
+    trace_sampled = False
+    # see https://www.w3.org/TR/trace-context/ for W3C traceparent format
+    if header:
+        try:
+            VERSION_PART = r"(?!ff)[a-f\d]{2}"
+            TRACE_ID_PART = r"(?![0]{32})[a-f\d]{32}"
+            PARENT_ID_PART = r"(?![0]{16})[a-f\d]{16}"
+            FLAGS_PART = r"[a-f\d]{2}"
+            regex = f"^\\s?({VERSION_PART})-({TRACE_ID_PART})-({PARENT_ID_PART})-({FLAGS_PART})(-.*)?\\s?$"
+            match = re.match(regex, header)
+            trace_id = match.group(2)
+            span_id = match.group(3)
+            # trace-flag component is an 8-bit bit field. Read as an int
+            int_flag = int(match.group(4), 16)
+            # trace sampled is set if the right-most bit in flag component is set
+            trace_sampled = bool(int_flag & 1)
+        except (IndexError, AttributeError):
+            # could not parse header as expected. Return None
+            pass
+    return trace_id, span_id, trace_sampled
+
+
+# This function is from google.cloud.logging but is a private method so we've moved
+# it here for safety
+def _parse_xcloud_trace(header):
+    """Given an X_CLOUD_TRACE header, extract the trace and span ids.
+
+    Args:
+        header (str): the string extracted from the X_CLOUD_TRACE header
+    Returns:
+        Tuple[Optional[dict], Optional[str], bool]:
+            The trace_id, span_id and trace_sampled extracted from the header
+            Each field will be None if not found.
+    """
+    trace_id = span_id = None
+    trace_sampled = False
+    # see https://cloud.google.com/trace/docs/setup for X-Cloud-Trace_Context format
+    if header:
+        try:
+            regex = r"([\w-]+)?(\/?([\w-]+))?(;?o=(\d))?"
+            match = re.match(regex, header)
+            trace_id = match.group(1)
+            span_id = match.group(3)
+            trace_sampled = match.group(5) == "1"
+        except IndexError:
+            pass
+    return trace_id, span_id, trace_sampled
 
 
 class DjangaeLoggingHandler(CloudLoggingHandler):
@@ -37,7 +109,24 @@ class DjangaeLoggingHandler(CloudLoggingHandler):
                 "You must install the %s middleware to use the DjangaeLoggingHandler" % _DJANGAE_MIDDLEWARE_NAME
             )
 
-        _client_store.client = logging.Client()
+        # If there's no thread-local client, we create one and do some setup
+        if not getattr(_client_store, "client", None):
+            _client_store.client = logging.Client()
+
+            logger = getLogger()
+
+            # remove built-in handlers on App Engine or Cloud Functions environments
+            if detect_resource().type in _CLEAR_HANDLER_RESOURCE_TYPES:
+                logger.handlers.clear()
+
+            # Google Logging profiles a list of loggers to ignore
+            # as they are internal. Ideally this would be configured
+            # in the Django logging setup but that just makes it a hassle for
+            # users.
+            for logger_name in EXCLUDED_LOGGER_DEFAULTS:
+                logger = getLogger(logger_name)
+                logger.propagate = False
+
         kwargs.setdefault("client", _client_store.client)
         super().__init__(*args, **kwargs)
 
@@ -52,10 +141,15 @@ class DjangaeLoggingHandler(CloudLoggingHandler):
 
             https://cloud.google.com/logging/docs/reference/v2/rest/v2/LogEntry#FIELDS.span_id
         """
-        trace_id = request.META.get(_DJANGO_XCLOUD_TRACE_HEADER)
-        span_id = str(id(request))[:8]  # First 8 bytes of the request id
-        span_id = bytes(span_id, "ascii").hex()  # Convert to hex, 16 chars long
-        return trace_id, span_id
+        # W3C traceparent header
+        header = request.META.get(_DJANGO_TRACEPARENT)
+        trace_id, span_id, trace_sampled = _parse_trace_parent(header)
+        if trace_id is None:
+            # traceparent not found. look for xcloud_trace_context header
+            header = request.META.get(_DJANGO_XCLOUD_TRACE_HEADER)
+            trace_id, span_id, trace_sampled = _parse_xcloud_trace(header)
+
+        return trace_id, span_id, trace_sampled
 
     def fetch_labels(self, request):
         """
@@ -67,8 +161,18 @@ class DjangaeLoggingHandler(CloudLoggingHandler):
 
         from django.utils.translation import get_language  # Inline as logging could be imported early
 
+        user = getattr(request, "user", None)
+
+        # We can't evaluate a user here if it's not already been evaluated
+        # or bad things happen (circular dependency stuff) so we log "???"
+        # to indicate there is a user of some sort, but we can't get its ID
+        if isinstance(user, SimpleLazyObject):
+            user_id = "???"
+        else:
+            user_id = getattr(user, "pk", None)
+
         ret = {
-            "user_id": getattr(getattr(request, "user", None), "pk", None),
+            "user_id": user_id,
             "language_code": get_language()
         }
 
@@ -77,8 +181,13 @@ class DjangaeLoggingHandler(CloudLoggingHandler):
     def emit(self, record):
         request = get_request()
         if request:
-            trace_id, span_id = self.fetch_trace_and_span(request)
+            trace_id, span_id, trace_sampled = self.fetch_trace_and_span(request)
             record._trace = trace_id
+            record._trace_str = record._trace or ""
             record._span_id = span_id
-            record._labels = self.fetch_labels(request)
+            record._span_id_str = span_id or ""
+            record._trace_sampled = trace_sampled
+            record._trace_sampled_str = "true" if record._trace_sampled else "false"
+            record._labels.update(self.fetch_labels(request))
+            record._labels_str = json.dumps(record._labels or {}, ensure_ascii=False)
         return super().emit(record)
