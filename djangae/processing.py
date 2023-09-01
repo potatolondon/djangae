@@ -199,17 +199,13 @@ def get_batch_filter(obj, order_field, from_next=True):
         False the function will return a filter that starts from this item.
     """
 
+    suffix = "gt" if from_next else "gte"
     if order_field == "pk" or obj._meta.pk.name == order_field:
-        ret = {"pk__gt": obj.pk}
+        ret = {f"pk__{suffix}": obj.pk}
     else:
         ret = {
-            f"{order_field}__gte": getattr(obj, order_field, None),
-            "pk__gt": obj.pk
+            f"{order_field}__{suffix}": getattr(obj, order_field, None)
         }
-
-    if not from_next:
-        ret["pk__gte"] = ret["pk__gt"]
-        del ret["pk_gt"]
 
     return ret
 
