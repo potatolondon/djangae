@@ -185,7 +185,7 @@ def nth_string(characters: str, length: int, n: int):
 
 
 def get_stable_order(model, order_field):
-    if model._meta.get_field(order_field).unique:
+    if order_field == "pk" or model._meta.get_field(order_field).unique:
         return (order_field, )
     else:
         return (order_field, "pk")
