@@ -396,7 +396,7 @@ def _process_shard(marker_id, shard_number, model, query, callback, finalize, or
     qs = qs.order_by(*get_stable_order(model, order_field))
 
     try:
-        for instance in iterate_in_chunks(qs, order_field):
+        for instance in iterate_in_chunks(qs):
             last_obj = instance
 
             shard_time = (datetime.now() - start_time).total_seconds()

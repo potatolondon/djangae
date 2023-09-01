@@ -210,7 +210,7 @@ def get_batch_filter(obj, order_field, from_next=True):
     return ret
 
 
-def iterate_in_chunks(queryset, order_field, chunk_size=1000):
+def iterate_in_chunks(queryset, chunk_size=1000):
     """ Given a queryset (which will become ordered by pk), return an iterable which will fetch its
         objects from the DB in batches of `chunk_size`. This is a temporary workaround for the fact
         that gcloudc doesn't implement Django's chunked fetching of querysets.
