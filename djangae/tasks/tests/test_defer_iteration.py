@@ -172,6 +172,24 @@ class DeferIterationTestCase(TestCase):
             self.assertTrue(instance.pk > last_id)
             last_id = instance.pk
 
+        # Now test that we can order by a different field other than pk
+        defer_iteration_with_finalize(
+            DeferStringKeyModel.objects.all(),
+            update_timestamp,
+            noop,
+            order_field="other",
+            _shards=2
+        )
+
+        self.process_task_queues()
+
+        instances = DeferStringKeyModel.objects.order_by("time_hit")
+
+        last_other = "\0"
+        for instance in instances:
+            self.assertTrue(instance.other > last_other)
+            last_other = instance.other
+
     def test_autoint_hits(self):
         [DeferIntegerKeyModel.objects.create(id=i+1) for i in range(25)]
         defer_iteration_with_finalize(

@@ -184,7 +184,37 @@ def nth_string(characters: str, length: int, n: int):
     return result
 
 
-def iterate_in_chunks(queryset, chunk_size=1000):
+def get_stable_order(model, order_field):
+    if model._meta.pk.name == order_field:
+        return ("pk", )
+    else:
+        return (order_field, "pk")
+
+
+def get_batch_filter(obj, order_field, from_next=True):
+    """
+        Given a model instance and an order field, this returns the filter
+        to continue iteration of an ordered queryset. If from_next is True
+        this will return a filter that starts from the next item, if it's
+        False the function will return a filter that starts from this item.
+    """
+
+    if order_field == "pk" or obj._meta.pk.name == order_field:
+        ret = {"pk__gt": obj.pk}
+    else:
+        ret = {
+            f"{order_field}__gte": getattr(obj, order_field, None),
+            "pk__gt": obj.pk
+        }
+
+    if not from_next:
+        ret["pk__gte"] = ret["pk__gt"]
+        del ret["pk_gt"]
+
+    return ret
+
+
+def iterate_in_chunks(queryset, order_field, chunk_size=1000):
     """ Given a queryset (which will become ordered by pk), return an iterable which will fetch its
         objects from the DB in batches of `chunk_size`. This is a temporary workaround for the fact
         that gcloudc doesn't implement Django's chunked fetching of querysets.
@@ -198,17 +228,18 @@ def iterate_in_chunks(queryset, chunk_size=1000):
         yield from queryset
         return
 
-    queryset = queryset.order_by("pk")
-    last_pk_of_previous_batch = None
+    offset = 0
+    limit = chunk_size
+
     has_results = True
     while has_results:
         has_results = False
-        if last_pk_of_previous_batch is not None:
-            queryset = queryset.filter(pk__gt=last_pk_of_previous_batch)
-        sliced_queryset = queryset[:chunk_size]  # Slicing must not affect `queryset`
+        sliced_queryset = queryset[offset:offset + limit]
         for obj in sliced_queryset.iterator():
             has_results = True
             yield obj
+
+        offset += chunk_size
+
         if not has_results:
             return
-        last_pk_of_previous_batch = obj.pk
