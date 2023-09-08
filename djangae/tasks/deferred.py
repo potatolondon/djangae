@@ -33,8 +33,8 @@ from django.db import (
     connections,
     models,
     router,
-    transaction as django_transaction,
 )
+from django.db import transaction as django_transaction
 from django.urls import reverse_lazy
 from django.utils import timezone
 from django.utils.encoding import force_str
@@ -44,7 +44,12 @@ from google.protobuf.timestamp_pb2 import Timestamp
 
 from djangae.environment import gae_version
 from djangae.models import DeferIterationMarker
-from djangae.processing import datastore_key_ranges, iterate_in_chunks
+from djangae.processing import (
+    datastore_key_ranges,
+    get_batch_filter,
+    iterate_in_chunks,
+    get_stable_order,
+)
 from djangae.utils import retry
 
 from . import (
@@ -352,7 +357,7 @@ class TimeoutException(Exception):
     pass
 
 
-def _process_shard(marker_id, shard_number, model, query, callback, finalize, args, kwargs):
+def _process_shard(marker_id, shard_number, model, query, callback, finalize, order_field, args, kwargs):
     args = args or tuple()
 
     # Set an index of the shard in the environment, which is useful for callbacks
@@ -375,6 +380,7 @@ def _process_shard(marker_id, shard_number, model, query, callback, finalize, ar
     if not marker.is_ready:
         defer(
             _process_shard, marker_id, shard_number, model, query, callback, finalize,
+            order_field,
             args=args,
             kwargs=kwargs,
             _queue=queue,
@@ -384,14 +390,14 @@ def _process_shard(marker_id, shard_number, model, query, callback, finalize, ar
 
     first_iteration = True
 
-    try:
-        qs = model.objects.all()
-        qs.query = query
-        qs = qs.order_by("pk")
+    last_obj = None
+    qs = model.objects.all()
+    qs.query = query
+    qs = qs.order_by(*get_stable_order(model, order_field))
 
-        last_pk = None
+    try:
         for instance in iterate_in_chunks(qs):
-            last_pk = instance.pk
+            last_obj = instance
 
             shard_time = (datetime.now() - start_time).total_seconds()
             if shard_time > _DEFERRED_SHARD_TIME_LIMIT_IN_SECONDS:
@@ -447,7 +453,7 @@ def _process_shard(marker_id, shard_number, model, query, callback, finalize, ar
         if isinstance(e, TimeoutException):
             logger.debug(
                 "Ran out of time processing shard. Deferring new shard to continue from: %s",
-                last_pk
+                getattr(last_obj, order_field, None)
             )
         else:
             logger.exception("Error processing shard. Retrying.")
@@ -458,11 +464,12 @@ def _process_shard(marker_id, shard_number, model, query, callback, finalize, ar
                 # because that would mean retrying the previous instances again
                 raise
 
-        if last_pk:
-            qs = qs.filter(pk__gte=last_pk)
+        if last_obj:
+            qs = qs.filter(**get_batch_filter(last_obj, order_field, from_next=False))
 
         defer(
             _process_shard, marker_id, shard_number, qs.model, qs.query, callback, finalize,
+            order_field,
             args=args,
             kwargs=kwargs,
             _queue=queue,
@@ -473,9 +480,9 @@ def _process_shard(marker_id, shard_number, model, query, callback, finalize, ar
 
 
 def _generate_shards(
-    model, query, callback, finalize, args, kwargs, shards, delete_marker, key_ranges_getter
+    model, query, callback, finalize, args, kwargs, shards,
+    delete_marker, key_ranges_getter, order_field
 ):
-
     queryset = model.objects.all()
     queryset.query = query
 
@@ -497,13 +504,14 @@ def _generate_shards(
 
         qs = model.objects.all()
         qs.query = query
+        qs = qs.order_by(*get_stable_order(model, order_field))
 
         filter_kwargs = {}
         if start:
-            filter_kwargs["pk__gte"] = start
+            filter_kwargs[f"{order_field}__gte"] = start
 
         if end:
-            filter_kwargs["pk__lt"] = end
+            filter_kwargs[f"{order_field}__lt"] = end
 
         qs = qs.filter(**filter_kwargs)
         atomic = get_transaction(model).atomic
@@ -521,6 +529,7 @@ def _generate_shards(
                 marker.pk,
                 shard_number,
                 qs.model, qs.query, callback, finalize,
+                order_field,
                 args=args,
                 kwargs=kwargs,
                 _queue=queue,
@@ -535,8 +544,9 @@ def _generate_shards(
 
 
 def defer_iteration_with_finalize(
-        queryset, callback, finalize, key_ranges_getter=datastore_key_ranges, _queue='default', _shards=5,
-        _delete_marker=True, _transactional=False, *args, **kwargs):
+        queryset, callback, finalize, key_ranges_getter=datastore_key_ranges, order_field="pk",
+        _queue='default', _shards=5, _delete_marker=True, _transactional=False, *args, **kwargs
+):
 
     defer(
         _generate_shards,
@@ -548,6 +558,7 @@ def defer_iteration_with_finalize(
         kwargs=kwargs,
         delete_marker=_delete_marker,
         key_ranges_getter=key_ranges_getter,
+        order_field=order_field,
         shards=_shards,
         _queue=_queue,
         _transactional=_transactional
