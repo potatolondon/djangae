@@ -77,6 +77,7 @@ _TASKQUEUE_HEADERS = {
 
 _CALLBACK_TIME_LIMIT_IN_SECONDS = 30
 _DEFERRED_SHARD_TIME_LIMIT_IN_SECONDS = (60 * 10) - _CALLBACK_TIME_LIMIT_IN_SECONDS
+_DEFAULT_SHARD_REDEFER_COUNTDOWN = 1
 
 
 _local = threading.local()
@@ -354,7 +355,8 @@ def defer(obj, *args, **kwargs):
 
 class TimeoutException(Exception):
     "Exception thrown to indicate that a new shard should begin and the current one should end"
-    pass
+    def __init__(self, countdown=_DEFAULT_SHARD_REDEFER_COUNTDOWN):
+        self.countdown = countdown
 
 
 def _process_shard(marker_id, shard_number, model, query, callback, finalize, order_field, args, kwargs):
@@ -384,7 +386,7 @@ def _process_shard(marker_id, shard_number, model, query, callback, finalize, or
             args=args,
             kwargs=kwargs,
             _queue=queue,
-            _countdown=1
+            _countdown=_DEFAULT_SHARD_REDEFER_COUNTDOWN
         )
         return
 
@@ -450,11 +452,13 @@ def _process_shard(marker_id, shard_number, model, query, callback, finalize, or
     except (Exception, TimeoutException) as e:
         # If we get any kind of exception, we want to redefer from where we got to, and we'll keep doing
         # that until the developer deploys a fix.
+        countdown = _DEFAULT_SHARD_REDEFER_COUNTDOWN
         if isinstance(e, TimeoutException):
             logger.debug(
                 "Ran out of time processing shard. Deferring new shard to continue from: %s",
                 getattr(last_obj, order_field, None)
             )
+            countdown = e.countdown
         else:
             logger.exception("Error processing shard. Retrying.")
 
@@ -473,7 +477,7 @@ def _process_shard(marker_id, shard_number, model, query, callback, finalize, or
             args=args,
             kwargs=kwargs,
             _queue=queue,
-            _countdown=1
+            _countdown=countdown
         )
     finally:
         _set_deferred_shard_index(None)
