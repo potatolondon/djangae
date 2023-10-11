@@ -104,6 +104,66 @@ def datastore_key_ranges(
     return key_ranges
 
 
+class SampledKeyRangeGenerator:
+    """ A pickleable callable to be passed as the `key_ranges_getter` kwarg to Djangae's
+        `defer_iteration_with_finalize`. It will create a set of key ranges based on a field whose
+        values might be unevenly clustered (meaning that using evenly-spaced ranges  would result in
+        a few of the ranges doing the bulk of the work).
+    """
+
+    def __init__(self, queryset, sharding_field, sample_size=1000, using=None):
+        """ The queryset should be ordered in such a way that fetching the first `sample_size`
+            objects from it will give a good representation of how the `sharding_field` values are
+            distributed/clustered. This queryset should be ordered by something different to the
+            one passed to __call__ - i.e. your first queryset is ordered by field A in order to find
+            the distribution of field B which is used to shard the second queryset for processing.
+        """
+        self.using = using
+        self.model = queryset.model
+        self.query = queryset.query
+        self.sharding_field = sharding_field
+        self.sample_size = sample_size
+
+    def __call__(self, queryset, shard_count: int, *args, **kwargs):
+        split_points = self._get_split_points(shard_count)
+        if split_points:
+            ranges = []
+            previous_split_point = None
+            for split_point in split_points:
+                ranges.append([previous_split_point, split_point])
+                previous_split_point = split_point
+            # The first and last ranges should have no lower/upper limit, respectively
+            ranges.append([previous_split_point, None])
+        else:
+            ranges = [(None, None)]
+        logger.debug("Key ranges for table %s: %s", queryset.model._meta.db_table, ranges)
+        return ranges
+
+    def _get_split_points(self, shard_count):
+        samples = self._get_samples()
+        # Essentially we use the samples as the split points, this means that in time periods where
+        # there are more entities there will be more split points. We just have to reduce the number
+        # of samples down until it's (roughly) the same as the number of range boundaries that we
+        # need to create.
+        ratio = len(samples) // shard_count  # This will err towards more ranges than asked for
+        if not ratio:
+            # Avoid zero-division fun in modulo when we've got fewer samples than we want shards
+            return samples
+        split_points = [
+            sample for index, sample in enumerate(samples) if not index % ratio
+        ]
+        return split_points
+
+    def _get_samples(self):
+        queryset = QuerySet(model=self.model, query=self.query, using=self.using)
+        samples = queryset.values_list(self.sharding_field, flat=True)[:self.sample_size]
+        # Remove empty values. We do this in Python to avoid surprising the developer with a query
+        # that requires an extra index. They can filter the queryset beforehand if they want.
+        samples = {x for x in samples if x}  # Also de-duplicate to avoid weirdness
+        # Sort in python, so that we don't cause the need for an additional index
+        return sorted(samples)
+
+
 def firestore_scattered_int_key_ranges(queryset: QuerySet, shard_count: int) -> list:
     """ For Firestore, which (at the time of coding this) can't order by PK descending, this
         provides a crude workaround for getting integer key ranges by simply splitting the maximum

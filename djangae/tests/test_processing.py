@@ -12,6 +12,7 @@ from djangae.processing import (
     FIRESTORE_KEY_NAME_LENGTH,
     FIRESTORE_MAX_INT,
     FIRESTORE_UID_LENGTH,
+    SampledKeyRangeGenerator,
     firestore_name_key_ranges,
     firestore_scattered_int_key_ranges,
     iterate_in_chunks,
@@ -22,10 +23,26 @@ from djangae.test import TestCase
 
 
 class TestModel(models.Model):
-    pass
+    uuid_field = models.UUIDField(default=uuid.uuid4)
 
 
 class KeyGeneratorsTestCase(TestCase):
+
+    def test_sampled_key_range_generator(self):
+        shard_count = 5
+        for _ in range(shard_count * 4):
+            TestModel.objects.create()
+        sample_queryset = TestModel.objects.order_by("id")
+        ranges_generator = SampledKeyRangeGenerator(sample_queryset, "uuid_field")
+        processing_queryset = TestModel.objects.all()
+        ranges = ranges_generator(processing_queryset, shard_count)
+        # The number of ranges might be slightly off due to the sampling
+        self.assertGreater(len(ranges), 3)
+        self.assertLess(len(ranges), 7)
+        self.assert_string_ranges_contiguous(ranges)
+        random_uuid = str(uuid.uuid4())
+        self.assert_contained_once(random_uuid, ranges)
+
     def test_sequential_int_key_ranges(self):
         with sleuth.fake("django.db.models.query.QuerySet.first", return_value=0):
             with sleuth.fake("django.db.models.query.QuerySet.last", return_value=1000):
