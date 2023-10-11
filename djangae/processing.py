@@ -8,6 +8,7 @@ FIRESTORE_MAX_INT = 2 ** 63 - 1
 # https://github.com/firebase/firebase-js-sdk/blob/4f446f0a1c00f080fb58451b086efa899be97a08/packages/firestore/src/util/misc.ts#L24-L34
 FIRESTORE_KEY_NAME_CHARS = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
 FIRESTORE_KEY_NAME_LENGTH = 20
+FIRESTORE_UID_LENGTH = 28
 
 logger = logging.getLogger(__name__)
 
@@ -137,27 +138,39 @@ def firestore_name_key_ranges(queryset: QuerySet, shard_count: int) -> list:
         provides a crude workaround for getting key ranges for its auto-generated string-based keys
         by simply splitting the maximum possible key range into evenly-sized ranges.
     """
+    return _random_fixed_length_string_ranges(
+        FIRESTORE_KEY_NAME_CHARS, FIRESTORE_KEY_NAME_LENGTH, shard_count
+    )
+
+
+def firestore_uid_key_ranges(queryset: QuerySet, shard_count: int) -> list:
+    """ Generates shard ranges for Firebase entities whose keys are Firebase UIDs (which are 28
+        character ascii strings). As Firebase can't order by PK descending, this generates shard
+        ranges by splitting the maximum possible key space into evenly sized ranges.
+    """
+    return _random_fixed_length_string_ranges(
+        FIRESTORE_KEY_NAME_CHARS, FIRESTORE_UID_LENGTH, shard_count
+    )
+
+
+def _random_fixed_length_string_ranges(chars, length, shard_count):
     key_ranges = []
     if shard_count > 1:
-        sorted_chars = sorted(FIRESTORE_KEY_NAME_CHARS)
-        max_value = sorted_chars[-1] * FIRESTORE_KEY_NAME_LENGTH
-        num_possibile_values = len(FIRESTORE_KEY_NAME_CHARS) ** FIRESTORE_KEY_NAME_LENGTH
+        sorted_chars = sorted(chars)
+        max_value = sorted_chars[-1] * length
+        num_possibile_values = len(chars) ** length
         # This avoids inadequate float precision, but means we might undershoot the size of each
         # shard. We add any lost range onto the last shard.
         values_per_shard = num_possibile_values // shard_count
         for index, start_offset in enumerate(range(0, num_possibile_values, values_per_shard)):
             end_offset = start_offset + values_per_shard
-            start_string = nth_string(
-                FIRESTORE_KEY_NAME_CHARS, FIRESTORE_KEY_NAME_LENGTH, start_offset
-            )
+            start_string = nth_string(chars, length, start_offset)
             if index + 1 == shard_count:  # Last shard
                 end_string = max_value
                 key_ranges.append((start_string, end_string))
                 break
             else:
-                end_string = nth_string(
-                    FIRESTORE_KEY_NAME_CHARS, FIRESTORE_KEY_NAME_LENGTH, end_offset
-                )
+                end_string = nth_string(chars, length, end_offset)
                 key_ranges.append((start_string, end_string))
     else:
         # Don't shard
