@@ -166,22 +166,25 @@ def uuid_key_ranges(queryset, shard_count):
 def _random_fixed_length_string_ranges(chars, length, shard_count):
     key_ranges = []
     if shard_count > 1:
-        sorted_chars = sorted(chars)
-        max_value = sorted_chars[-1] * length
         num_possibile_values = len(chars) ** length
         # This avoids inadequate float precision, but means we might undershoot the size of each
         # shard. We add any lost range onto the last shard.
         values_per_shard = num_possibile_values // shard_count
         for index, start_offset in enumerate(range(0, num_possibile_values, values_per_shard)):
             end_offset = start_offset + values_per_shard
-            start_string = nth_string(chars, length, start_offset)
+            if index == 0:  # First shard
+                start_string = None
+            else:
+                start_string = nth_string(chars, length, start_offset)
             if index + 1 == shard_count:  # Last shard
-                end_string = max_value
-                key_ranges.append((start_string, end_string))
-                break
+                end_string = None
             else:
                 end_string = nth_string(chars, length, end_offset)
-                key_ranges.append((start_string, end_string))
+            key_ranges.append((start_string, end_string))
+            if end_string is None:
+                # Avoid having two end ranges due to the number of possible values not dividing
+                # evenly into the number of shards. Eugh.
+                break
     else:
         # Don't shard
         key_ranges = [(None, None)]
