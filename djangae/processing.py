@@ -1,6 +1,7 @@
 from math import ceil
 from typing import Callable
 import logging
+import uuid
 
 from django.db.models.query import QuerySet
 
@@ -151,6 +152,15 @@ def firestore_uid_key_ranges(queryset: QuerySet, shard_count: int) -> list:
     return _random_fixed_length_string_ranges(
         FIRESTORE_KEY_NAME_CHARS, FIRESTORE_UID_LENGTH, shard_count
     )
+
+
+def uuid_key_ranges(queryset, shard_count):
+    """ Key range generator for UUID strings. """
+    # Due to the complication of hyphens, we just work with the characters before the first hyphen
+    # to keep things simple. This gives more than enough separation for any sensible shard count,
+    # regardless of whether or not the UUIDs are stored in the DB with hyphens.
+    uuid_segment_len = str(uuid.uuid4()).index("-") + 1
+    return _random_fixed_length_string_ranges("0123456789abcdef", uuid_segment_len, shard_count)
 
 
 def _random_fixed_length_string_ranges(chars, length, shard_count):

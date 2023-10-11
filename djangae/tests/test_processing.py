@@ -2,6 +2,7 @@ import itertools
 import math
 import random
 import sys
+import uuid
 
 from djangae.contrib import sleuth
 from django.db import models
@@ -15,6 +16,7 @@ from djangae.processing import (
     firestore_scattered_int_key_ranges,
     iterate_in_chunks,
     sequential_int_key_ranges,
+    uuid_key_ranges,
 )
 from djangae.test import TestCase
 
@@ -135,6 +137,22 @@ class KeyGeneratorsTestCase(TestCase):
                 for _ in range(FIRESTORE_UID_LENGTH)
             )
             self.assert_contained_once(random_firestore_uid, ranges)
+
+    def test_uuid_key_ranges(self):
+        queryset = TestModel.objects.all()
+        # For a shard count of 1, we expect no sharding
+        ranges = uuid_key_ranges(queryset, 1)
+        self.assertEqual(ranges, [(None, None)])
+        # Test for various shard counts
+        for shard_count in (3, 7, 14):
+            ranges = uuid_key_ranges(queryset, shard_count)
+            self.assertEqual(len(ranges), shard_count)
+            self.assert_string_ranges_contiguous(ranges)
+            random_uuid = str(uuid.uuid4())
+            self.assert_contained_once(random_uuid, ranges)
+            # Test without hyphens, which is how Django stores them
+            random_uuid = str(uuid.uuid4()).replace("-", "")
+            self.assert_contained_once(random_uuid, ranges)
 
     def assert_string_ranges_contiguous(self, ranges, msg=None):
         """ Check that the given list of pairs doesn't contain any overlapping values and doesn't
