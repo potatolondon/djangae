@@ -23,7 +23,9 @@ from djangae.test import TestCase
 
 
 class TestModel(models.Model):
-    uuid_field = models.UUIDField(default=uuid.uuid4)
+    # A field that will have some randomly scattered values. Avoid UUIDField, as its
+    # not-actually-a-string nature makes it a bit awkward.
+    field1 = models.CharField(max_length=100, default=lambda: str(uuid.uuid4()))
 
 
 class KeyGeneratorsTestCase(TestCase):
@@ -33,7 +35,7 @@ class KeyGeneratorsTestCase(TestCase):
         for _ in range(shard_count * 4):
             TestModel.objects.create()
         sample_queryset = TestModel.objects.order_by("id")
-        ranges_generator = SampledKeyRangeGenerator(sample_queryset, "uuid_field")
+        ranges_generator = SampledKeyRangeGenerator(sample_queryset, "field1")
         processing_queryset = TestModel.objects.all()
         ranges = ranges_generator(processing_queryset, shard_count)
         # The number of ranges might be slightly off due to the sampling
