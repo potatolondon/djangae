@@ -11,8 +11,9 @@ from djangae.processing import (
     FIRESTORE_KEY_NAME_CHARS,
     FIRESTORE_KEY_NAME_LENGTH,
     FIRESTORE_MAX_INT,
-    FIRESTORE_UID_LENGTH,
+    FIREBASE_UID_LENGTH,
     SampledKeyRangeGenerator,
+    firebase_uid_key_ranges,
     firestore_name_key_ranges,
     firestore_scattered_int_key_ranges,
     iterate_in_chunks,
@@ -144,16 +145,16 @@ class KeyGeneratorsTestCase(TestCase):
     def test_firestore_uid_ranges(self):
         queryset = TestModel.objects.all()
         # For a shard count of 1, we expect no sharding
-        ranges = firestore_name_key_ranges(queryset, 1)
+        ranges = firebase_uid_key_ranges(queryset, 1)
         self.assertEqual(ranges, [(None, None)])
         # Test for various shard counts
         for shard_count in (3, 7, 14):
-            ranges = firestore_name_key_ranges(queryset, shard_count)
+            ranges = firebase_uid_key_ranges(queryset, shard_count)
             self.assertEqual(len(ranges), shard_count)
             self.assert_string_ranges_contiguous(ranges)
             random_firestore_uid = "".join(
                 random.choice(FIRESTORE_KEY_NAME_CHARS)
-                for _ in range(FIRESTORE_UID_LENGTH)
+                for _ in range(FIREBASE_UID_LENGTH)
             )
             self.assert_contained_once(random_firestore_uid, ranges)
 

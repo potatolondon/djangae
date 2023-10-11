@@ -9,7 +9,7 @@ FIRESTORE_MAX_INT = 2 ** 63 - 1
 # https://github.com/firebase/firebase-js-sdk/blob/4f446f0a1c00f080fb58451b086efa899be97a08/packages/firestore/src/util/misc.ts#L24-L34
 FIRESTORE_KEY_NAME_CHARS = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
 FIRESTORE_KEY_NAME_LENGTH = 20
-FIRESTORE_UID_LENGTH = 28
+FIREBASE_UID_LENGTH = 28
 
 logger = logging.getLogger(__name__)
 
@@ -204,13 +204,13 @@ def firestore_name_key_ranges(queryset: QuerySet, shard_count: int) -> list:
     )
 
 
-def firestore_uid_key_ranges(queryset: QuerySet, shard_count: int) -> list:
-    """ Generates shard ranges for Firebase entities whose keys are Firebase UIDs (which are 28
-        character ascii strings). As Firebase can't order by PK descending, this generates shard
+def firebase_uid_key_ranges(queryset: QuerySet, shard_count: int) -> list:
+    """ Generates shard ranges for Firestore entities whose keys are Firebase Auth UIDs (which are
+        28 character ascii strings). As Firestore can't order by PK descending, this generates shard
         ranges by splitting the maximum possible key space into evenly sized ranges.
     """
     return _random_fixed_length_string_ranges(
-        FIRESTORE_KEY_NAME_CHARS, FIRESTORE_UID_LENGTH, shard_count
+        FIRESTORE_KEY_NAME_CHARS, FIREBASE_UID_LENGTH, shard_count
     )
 
 
