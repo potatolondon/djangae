@@ -1,6 +1,7 @@
 from math import ceil
 from typing import Callable
 import logging
+import uuid
 
 from django.db.models.query import QuerySet
 
@@ -8,6 +9,7 @@ FIRESTORE_MAX_INT = 2 ** 63 - 1
 # https://github.com/firebase/firebase-js-sdk/blob/4f446f0a1c00f080fb58451b086efa899be97a08/packages/firestore/src/util/misc.ts#L24-L34
 FIRESTORE_KEY_NAME_CHARS = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
 FIRESTORE_KEY_NAME_LENGTH = 20
+FIREBASE_UID_LENGTH = 28
 
 logger = logging.getLogger(__name__)
 
@@ -102,6 +104,66 @@ def datastore_key_ranges(
     return key_ranges
 
 
+class SampledKeyRangeGenerator:
+    """ A pickleable callable to be passed as the `key_ranges_getter` kwarg to Djangae's
+        `defer_iteration_with_finalize`. It will create a set of key ranges based on a field whose
+        values might be unevenly clustered (meaning that using evenly-spaced ranges  would result in
+        a few of the ranges doing the bulk of the work).
+    """
+
+    def __init__(self, queryset, sharding_field, sample_size=1000, using=None):
+        """ The queryset should be ordered in such a way that fetching the first `sample_size`
+            objects from it will give a good representation of how the `sharding_field` values are
+            distributed/clustered. This queryset should be ordered by something different to the
+            one passed to __call__ - i.e. your first queryset is ordered by field A in order to find
+            the distribution of field B which is used to shard the second queryset for processing.
+        """
+        self.using = using
+        self.model = queryset.model
+        self.query = queryset.query
+        self.sharding_field = sharding_field
+        self.sample_size = sample_size
+
+    def __call__(self, queryset, shard_count: int, *args, **kwargs):
+        split_points = self._get_split_points(shard_count)
+        if split_points:
+            ranges = []
+            previous_split_point = None
+            for split_point in split_points:
+                ranges.append([previous_split_point, split_point])
+                previous_split_point = split_point
+            # The first and last ranges should have no lower/upper limit, respectively
+            ranges.append([previous_split_point, None])
+        else:
+            ranges = [(None, None)]
+        logger.debug("Key ranges for table %s: %s", queryset.model._meta.db_table, ranges)
+        return ranges
+
+    def _get_split_points(self, shard_count):
+        samples = self._get_samples()
+        # Essentially we use the samples as the split points, this means that in time periods where
+        # there are more entities there will be more split points. We just have to reduce the number
+        # of samples down until it's (roughly) the same as the number of range boundaries that we
+        # need to create.
+        ratio = len(samples) // shard_count  # This will err towards more ranges than asked for
+        if not ratio:
+            # Avoid zero-division fun in modulo when we've got fewer samples than we want shards
+            return samples
+        split_points = [
+            sample for index, sample in enumerate(samples) if not index % ratio
+        ]
+        return split_points
+
+    def _get_samples(self):
+        queryset = QuerySet(model=self.model, query=self.query, using=self.using)
+        samples = queryset.values_list(self.sharding_field, flat=True)[:self.sample_size]
+        # Remove empty values. We do this in Python to avoid surprising the developer with a query
+        # that requires an extra index. They can filter the queryset beforehand if they want.
+        samples = {x for x in samples if x}  # Also de-duplicate to avoid weirdness
+        # Sort in python, so that we don't cause the need for an additional index
+        return sorted(samples)
+
+
 def firestore_scattered_int_key_ranges(queryset: QuerySet, shard_count: int) -> list:
     """ For Firestore, which (at the time of coding this) can't order by PK descending, this
         provides a crude workaround for getting integer key ranges by simply splitting the maximum
@@ -137,28 +199,52 @@ def firestore_name_key_ranges(queryset: QuerySet, shard_count: int) -> list:
         provides a crude workaround for getting key ranges for its auto-generated string-based keys
         by simply splitting the maximum possible key range into evenly-sized ranges.
     """
+    return _random_fixed_length_string_ranges(
+        FIRESTORE_KEY_NAME_CHARS, FIRESTORE_KEY_NAME_LENGTH, shard_count
+    )
+
+
+def firebase_uid_key_ranges(queryset: QuerySet, shard_count: int) -> list:
+    """ Generates shard ranges for Firestore entities whose keys are Firebase Auth UIDs (which are
+        28 character ascii strings). As Firestore can't order by PK descending, this generates shard
+        ranges by splitting the maximum possible key space into evenly sized ranges.
+    """
+    return _random_fixed_length_string_ranges(
+        FIRESTORE_KEY_NAME_CHARS, FIREBASE_UID_LENGTH, shard_count
+    )
+
+
+def uuid_key_ranges(queryset, shard_count):
+    """ Key range generator for UUID strings. """
+    # Due to the complication of hyphens, we just work with the characters before the first hyphen
+    # to keep things simple. This gives more than enough separation for any sensible shard count,
+    # regardless of whether or not the UUIDs are stored in the DB with hyphens.
+    uuid_segment_len = str(uuid.uuid4()).index("-") + 1
+    return _random_fixed_length_string_ranges("0123456789abcdef", uuid_segment_len, shard_count)
+
+
+def _random_fixed_length_string_ranges(chars, length, shard_count):
     key_ranges = []
     if shard_count > 1:
-        sorted_chars = sorted(FIRESTORE_KEY_NAME_CHARS)
-        max_value = sorted_chars[-1] * FIRESTORE_KEY_NAME_LENGTH
-        num_possibile_values = len(FIRESTORE_KEY_NAME_CHARS) ** FIRESTORE_KEY_NAME_LENGTH
+        num_possibile_values = len(chars) ** length
         # This avoids inadequate float precision, but means we might undershoot the size of each
         # shard. We add any lost range onto the last shard.
         values_per_shard = num_possibile_values // shard_count
         for index, start_offset in enumerate(range(0, num_possibile_values, values_per_shard)):
             end_offset = start_offset + values_per_shard
-            start_string = nth_string(
-                FIRESTORE_KEY_NAME_CHARS, FIRESTORE_KEY_NAME_LENGTH, start_offset
-            )
-            if index + 1 == shard_count:  # Last shard
-                end_string = max_value
-                key_ranges.append((start_string, end_string))
-                break
+            if index == 0:  # First shard
+                start_string = None
             else:
-                end_string = nth_string(
-                    FIRESTORE_KEY_NAME_CHARS, FIRESTORE_KEY_NAME_LENGTH, end_offset
-                )
-                key_ranges.append((start_string, end_string))
+                start_string = nth_string(chars, length, start_offset)
+            if index + 1 == shard_count:  # Last shard
+                end_string = None
+            else:
+                end_string = nth_string(chars, length, end_offset)
+            key_ranges.append((start_string, end_string))
+            if end_string is None:
+                # Avoid having two end ranges due to the number of possible values not dividing
+                # evenly into the number of shards. Eugh.
+                break
     else:
         # Don't shard
         key_ranges = [(None, None)]
