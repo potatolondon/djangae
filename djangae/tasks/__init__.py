@@ -1,8 +1,10 @@
+import logging
+from threading import local
+import os
+
 from django.conf import settings
 from djangae.environment import project_id as gae_project_id
 
-import logging
-import os
 import grpc
 from google.protobuf import field_mask_pb2
 
@@ -12,9 +14,12 @@ CLOUD_TASKS_PROJECT_SETTING = "CLOUD_TASKS_PROJECT_ID"
 CLOUD_TASKS_LOCATION_SETTING = "CLOUD_TASKS_LOCATION"
 
 
+_local = local()
+
+
 def get_cloud_tasks_client():
     """
-        Get an instance of a Google CloudTasksClient
+        Get an instance of a Google CloudTasksClient for the current thread
 
         Note. Nested imports are to allow for things not to
         force the google cloud tasks dependency if you're not
@@ -22,28 +27,31 @@ def get_cloud_tasks_client():
     """
     from google.cloud.tasks import CloudTasksClient
 
-    is_app_engine = os.environ.get("GAE_ENV") == "standard"
+    if not getattr(_local, 'cloud_tasks_api_client', None):
 
-    if is_app_engine:
-        return CloudTasksClient()
-    else:
-        # Running locally, try to connect to the emulator
+        is_app_engine = os.environ.get("GAE_ENV") == "standard"
 
-        try:
-            # google-cloud-tasks < 2.0.0 has this here
-            from google.cloud.tasks_v2.gapic.transports.cloud_tasks_grpc_transport import CloudTasksGrpcTransport
-        except ImportError:
-            from google.cloud.tasks_v2.services.cloud_tasks.transports.grpc import CloudTasksGrpcTransport
+        if is_app_engine:
+            _local.cloud_tasks_api_client = CloudTasksClient()
+        else:
+            # Running locally, try to connect to the emulator
 
-        from google.api_core.client_options import ClientOptions
+            try:
+                # google-cloud-tasks < 2.0.0 has this here
+                from google.cloud.tasks_v2.gapic.transports.cloud_tasks_grpc_transport import CloudTasksGrpcTransport
+            except ImportError:
+                from google.cloud.tasks_v2.services.cloud_tasks.transports.grpc import CloudTasksGrpcTransport
 
-        host = os.environ.get("TASKS_EMULATOR_HOST", "127.0.0.1:9022")
+            from google.api_core.client_options import ClientOptions
 
-        client = CloudTasksClient(
-            transport=CloudTasksGrpcTransport(channel=grpc.insecure_channel(host)),
-            client_options=ClientOptions(api_endpoint=host)
-        )
-        return client
+            host = os.environ.get("TASKS_EMULATOR_HOST", "127.0.0.1:9022")
+
+            _local.cloud_tasks_client = CloudTasksClient(
+                transport=CloudTasksGrpcTransport(channel=grpc.insecure_channel(host)),
+                client_options=ClientOptions(api_endpoint=host)
+            )
+
+    return _local.cloud_tasks_client
 
 
 def ensure_required_queues_exist():
