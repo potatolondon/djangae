@@ -41,7 +41,6 @@
 - Allow custom callable for `djangae.processing.datastore_key_ranges` to generate random keys
 - Run datastore emulator with firestore-in-datastore mode enabled
 - Update `AppEngineSecurityMiddleware` to support version `6.0`+ of `pyyaml`
-- Update `djangae.tasks` to re-use a single Cloud Tasks API client per-thread
 
 ### Bug fixes:
 
