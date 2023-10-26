@@ -1,8 +1,10 @@
+import logging
+from threading import local
+import os
+
 from django.conf import settings
 from djangae.environment import project_id as gae_project_id
 
-import logging
-import os
 import grpc
 from google.protobuf import field_mask_pb2
 
@@ -12,9 +14,16 @@ CLOUD_TASKS_PROJECT_SETTING = "CLOUD_TASKS_PROJECT_ID"
 CLOUD_TASKS_LOCATION_SETTING = "CLOUD_TASKS_LOCATION"
 
 
+_local = local()
+
+
 def get_cloud_tasks_client():
     """
         Get an instance of a Google CloudTasksClient
+
+        FIXME: Due to a race with emulator startup when running locally we
+        return a fresh client on _each_ call but in production it's the same
+        instance per-thread.
 
         Note. Nested imports are to allow for things not to
         force the google cloud tasks dependency if you're not
@@ -25,7 +34,9 @@ def get_cloud_tasks_client():
     is_app_engine = os.environ.get("GAE_ENV") == "standard"
 
     if is_app_engine:
-        return CloudTasksClient()
+        if not getattr(_local, 'cloud_tasks_api_client', None):
+            _local.cloud_tasks_api_client = CloudTasksClient()
+        return _local.cloud_tasks_api_client
     else:
         # Running locally, try to connect to the emulator
 
@@ -39,11 +50,10 @@ def get_cloud_tasks_client():
 
         host = os.environ.get("TASKS_EMULATOR_HOST", "127.0.0.1:9022")
 
-        client = CloudTasksClient(
+        return CloudTasksClient(
             transport=CloudTasksGrpcTransport(channel=grpc.insecure_channel(host)),
             client_options=ClientOptions(api_endpoint=host)
         )
-        return client
 
 
 def ensure_required_queues_exist():
