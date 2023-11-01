@@ -166,13 +166,30 @@ class KeyGeneratorsTestCase(TestCase):
         # Test for various shard counts
         for shard_count in (3, 7, 14):
             ranges = uuid_key_ranges(queryset, shard_count)
+            # All range values should be UUIDs or None
+            NoneType = type(None)
+            for rng in ranges:
+                self.assertIsInstance(rng[0], (uuid.UUID, NoneType), f"Invalid UUID range: {rng}")
+                self.assertIsInstance(rng[1], (uuid.UUID, NoneType), f"Invalid UUID range: {rng}")
             self.assertEqual(len(ranges), shard_count)
-            self.assert_string_ranges_contiguous(ranges)
+            ranges_as_strings = [
+                [str(rng[0]) if rng[0] else None, str(rng[1]) if rng[1] else None]
+                for rng in ranges
+            ]
+            ranges_as_django_strings = [
+                [
+                    str(rng[0]).replace("-", "") if rng[0] else None,
+                    str(rng[1]).replace("-", "") if rng[1] else None
+                ]
+                for rng in ranges
+            ]
+            self.assert_string_ranges_contiguous(ranges_as_strings)
+            self.assert_string_ranges_contiguous(ranges_as_django_strings)
             random_uuid = str(uuid.uuid4())
-            self.assert_contained_once(random_uuid, ranges)
+            self.assert_contained_once(random_uuid, ranges_as_strings)
             # Test without hyphens, which is how Django stores them
             random_uuid = str(uuid.uuid4()).replace("-", "")
-            self.assert_contained_once(random_uuid, ranges)
+            self.assert_contained_once(random_uuid, ranges_as_django_strings)
 
     def assert_string_ranges_contiguous(self, ranges, msg=None):
         """ Check that the given list of pairs doesn't contain any overlapping values and doesn't

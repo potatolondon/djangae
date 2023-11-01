@@ -1,6 +1,7 @@
 from math import ceil
 from typing import Callable
 import logging
+import re
 import uuid
 
 from django.db.models.query import QuerySet
@@ -107,7 +108,7 @@ def datastore_key_ranges(
 class SampledKeyRangeGenerator:
     """ A pickleable callable to be passed as the `key_ranges_getter` kwarg to Djangae's
         `defer_iteration_with_finalize`. It will create a set of key ranges based on a field whose
-        values might be unevenly clustered (meaning that using evenly-spaced ranges  would result in
+        values might be unevenly clustered (meaning that using evenly-spaced ranges would result in
         a few of the ranges doing the bulk of the work).
     """
 
@@ -219,8 +220,22 @@ def uuid_key_ranges(queryset, shard_count):
     # Due to the complication of hyphens, we just work with the characters before the first hyphen
     # to keep things simple. This gives more than enough separation for any sensible shard count,
     # regardless of whether or not the UUIDs are stored in the DB with hyphens.
-    uuid_segment_len = str(uuid.uuid4()).index("-") + 1
-    return _random_fixed_length_string_ranges("0123456789abcdef", uuid_segment_len, shard_count)
+    some_uuid_str = str(uuid.uuid4())
+    uuid_segment_len = some_uuid_str.index("-")
+    string_ranges = _random_fixed_length_string_ranges("0123456789abcdef", uuid_segment_len, shard_count)
+
+    # We now need to convert those first segment strings into actual UUIDs (because you can't filter
+    # a Django query by a UUIDField on a string value)
+    base_uuid = re.sub(r"[a-z0-9]", "0", some_uuid_str)
+
+    def _to_uuid(first_segment):
+        if first_segment is None:
+            return first_segment
+        return uuid.UUID(re.sub(r"^[a-z0-9]+", first_segment, base_uuid))
+
+    return [
+        (_to_uuid(rng[0]), _to_uuid(rng[1])) for rng in string_ranges
+    ]
 
 
 def _random_fixed_length_string_ranges(chars, length, shard_count):
