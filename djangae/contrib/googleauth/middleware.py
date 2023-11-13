@@ -285,18 +285,14 @@ def local_iap_login_middleware(get_response):
 
                     try:
                         user = User.objects.get(email_lower=email.lower())
-                        fields_to_update = []
                         for field, value in defaults.items():
-                            if getattr(user, field) != value:
-                                setattr(user, field, value)
-                                fields_to_update.append(field)
+                            setattr(user, field, value)
                         retry(
                             user.save,
                             _catch=TransactionFailedError,
                             _attempts=10,
                             _initial_wait=200,
                             _max_wait=600,
-                            update_fields=fields_to_update
                         )
                     except User.DoesNotExist:
                         user = User.objects.create(email_lower=email.lower(), **defaults)
