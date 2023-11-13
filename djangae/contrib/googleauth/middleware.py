@@ -1,5 +1,3 @@
-
-
 import hashlib
 import logging
 import os
@@ -28,6 +26,7 @@ from django.shortcuts import (
 from django.urls.base import reverse
 from django.utils.functional import SimpleLazyObject
 from django.utils.http import urlencode
+from gcloudc.db.backends.datastore.transaction import TransactionFailedError
 
 from djangae.contrib.googleauth import (
     _GOOG_AUTHENTICATED_USER_EMAIL_HEADER,
@@ -35,13 +34,14 @@ from djangae.contrib.googleauth import (
     _GOOG_JWT_ASSERTION_HEADER,
 )
 from djangae.environment import is_production_environment
-from djangae.utils import retry_on_error, retry
+from djangae.utils import (
+    retry,
+    retry_on_error,
+)
 
 from .backends.iap import IAPBackend
 from .backends.oauth2 import OAuthBackend
 from .models import OAuthUserSession
-
-from gcloudc.db.backends.datastore.transaction import TransactionFailedError
 
 _OAUTH_LINK_EXPIRY_SETTING = "GOOGLEAUTH_LINK_OAUTH_SESSION_EXPIRY"
 
@@ -84,22 +84,6 @@ def get_user(request):
 
 
 class AuthenticationMiddleware(AuthenticationMiddleware):
-    # A `retry_on_error` is needed here because few Datastore transactions
-    # might collide in the auth flow.
-    #
-    # Sessions
-    # If multiple concurrent calls hit the server and the Session needs its key to be cycled
-    # we could have contention. Interestingly at the time of adding the retry the collision doesn't come from
-    # [this transaction](https://github.com/django/django/blob/1ac397674b2f64d48e66502a20b9d9ca6bfb579a/django/contrib/sessions/backends/db.py#L85)  # noqa: E501
-    # (at this point in time GCloudc does not plug into Django transations) but happens because of
-    # the the Gcloudc INSERTd being wrapped in a transaction).
-    #
-    # User
-    # User creation might in the IAP backend authentication method
-    # [here](https://gitlab.com/potato-oss/djangae/djangae/-/blob/f791ab9b8047a7ef085500a1fde0bc2e8d67b1e7/djangae/contrib/googleauth/backends/iap.py#L147)
-    # can also create contention.
-    # User also can get updates in particular scenarios (see the IAP backend) leading to contention.
-    @retry_on_error(_catch=TransactionFailedError, _attempts=10, _initial_wait=200, _max_wait=600)
     def process_request(self, request):
 
         assert hasattr(request, 'session'), (
@@ -156,32 +140,48 @@ class AuthenticationMiddleware(AuthenticationMiddleware):
             except StopIteration:
                 iap_backend = None
 
-            # Try to authenticate with IAP if the headers
-            # are available
+            # Try to authenticate with IAP if the headers are available
             if iap_backend and IAPBackend.can_authenticate(request):
-                # Calling login() cycles the csrf token which causes POST request
-                # to break. We only call login if authenticating with IAP changed
-                # the user ID in the session, or the user ID was not in the session
-                # at all.
-                user = iap_backend.authenticate(request)
-                if user and user.is_authenticated:
-                    should_login = (
-                        SESSION_KEY not in request.session
-                        or _get_user_session_key(request) != user.pk
-                    )
+                auth_with_iap(iap_backend, request)
 
-                    # We always set the backend to IAP so that it truely reflects what was the last
-                    # backend to authenticate this user
-                    user.backend = 'djangae.contrib.googleauth.backends.iap.%s' % IAPBackend.__name__
 
-                    if should_login:
-                        # Setting the backend is needed for the call to login
-                        login(request, user)
-                    else:
-                        # If we don't call login, we need to set request.user ourselves
-                        # and update the backend string in the session
-                        request.user = user
-                        request.session[BACKEND_SESSION_KEY] = user.backend
+# A `retry_on_error` is needed here because few Datastore transactions
+# might collide in the iap auth flow.
+#
+# Sessions
+# If multiple concurrent calls hit the server and the Session needs its key to be cycled
+# we could have contention. Interestingly at the time of adding the retry the collision happens because of
+# the Gcloudc INSERT being wrapped in a transaction.
+#
+# User
+# User creation might happen in the IAP backend authentication method and this
+# can create contention.
+# User can also get updates in particular scenarios (see the IAP backend) which can lead to contention.
+@retry_on_error(_catch=TransactionFailedError, _attempts=10, _initial_wait=200, _max_wait=600)
+def auth_with_iap(iap_backend, request):
+    # Calling login() cycles the csrf token which causes POST request
+    # to break. We only call login if authenticating with IAP changed
+    # the user ID in the session, or the user ID was not in the session
+    # at all.
+    user = iap_backend.authenticate(request)
+    if user and user.is_authenticated:
+        should_login = (
+            SESSION_KEY not in request.session
+            or _get_user_session_key(request) != user.pk
+        )
+
+        # We always set the backend to IAP so that it truely reflects what was the last
+        # backend to authenticate this user
+        user.backend = 'djangae.contrib.googleauth.backends.iap.%s' % IAPBackend.__name__
+
+        if should_login:
+            # Setting the backend is needed for the call to login
+            login(request, user)
+        else:
+            # If we don't call login, we need to set request.user ourselves
+            # and update the backend string in the session
+            request.user = user
+            request.session[BACKEND_SESSION_KEY] = user.backend
 
 
 class ProfileForm(forms.Form):
