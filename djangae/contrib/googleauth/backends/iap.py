@@ -2,9 +2,7 @@ import logging
 
 from django.conf import settings
 from django.contrib.auth import get_user_model
-from django.contrib.auth.hashers import (
-    make_password
-)
+from django.contrib.auth.hashers import make_password
 from django.core.exceptions import (
     ImproperlyConfigured,
     SuspiciousOperation,
@@ -18,7 +16,7 @@ from djangae.contrib.googleauth import (
     _GOOG_AUTHENTICATED_USER_ID_HEADER,
     _GOOG_JWT_ASSERTION_HEADER,
     _IAP_AUDIENCE,
-    _JWT_SIGNING_ENABLED_SETTING
+    _JWT_SIGNING_ENABLED_SETTING,
 )
 from djangae.contrib.googleauth.models import UserManager
 
@@ -149,15 +147,14 @@ class IAPBackend(BaseBackend):
                 if user_needs_resave:
                     user.save()
             else:
-                with atomic():
-                    # First time we've seen this user
-                    user = User.objects.create(
-                        google_iap_id=user_id,
-                        google_iap_namespace=namespace,
-                        email=email,
-                        username=_generate_unused_username(username),
-                        password=make_password(None),
-                    )
+                # First time we've seen this user
+                user = User.objects.create(
+                    google_iap_id=user_id,
+                    google_iap_namespace=namespace,
+                    email=email,
+                    username=_generate_unused_username(username),
+                    password=make_password(None),
+                )
 
         return user
 
