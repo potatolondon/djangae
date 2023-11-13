@@ -35,7 +35,7 @@ from djangae.contrib.googleauth import (
     _GOOG_JWT_ASSERTION_HEADER,
 )
 from djangae.environment import is_production_environment
-from djangae.utils import retry_on_error
+from djangae.utils import retry_on_error, retry
 
 from .backends.iap import IAPBackend
 from .backends.oauth2 import OAuthBackend
@@ -283,13 +283,23 @@ def local_iap_login_middleware(get_response):
                     if is_superuser:
                         defaults["is_staff"] = True
 
-                    user = User.objects.filter(email_lower=email.lower()).first()
-                    if not user:
+                    try:
+                        user = User.objects.get(email_lower=email.lower())
+                        fields_to_update = []
+                        for field, value in defaults.items():
+                            if getattr(user, field) != value:
+                                setattr(user, field, value)
+                                fields_to_update.append(field)
+                        retry(
+                            user.save,
+                            _catch=TransactionFailedError,
+                            _attempts=10,
+                            _initial_wait=200,
+                            _max_wait=600,
+                            update_fields=fields_to_update
+                        )
+                    except User.DoesNotExist:
                         user = User.objects.create(email_lower=email.lower(), **defaults)
-                    elif user.is_superuser != is_superuser:
-                        user.is_superuser = is_superuser
-                        user.is_staff = is_superuser
-                        user.save()
 
                     request.META[_GOOG_JWT_ASSERTION_HEADER] = "JWT TOKEN"
                     request.META[_GOOG_AUTHENTICATED_USER_ID_HEADER] = "auth.example.com:%s" % user.google_iap_id

@@ -146,11 +146,8 @@ class LocalIAPMiddlewareTests(TestCase):
         with concurrent.futures.ThreadPoolExecutor(max_workers=concurrent_writes) as executor:
             for _ in range(concurrent_writes):
                 futures.append(
-                    executor.submit(lambda:  self.client.get(""))
+                    executor.submit(lambda:  self.client.get('/'))
                 )
 
         concurrent.futures.wait(futures)
-
-        [print(f.result().content) for f in futures]
-
         [self.assertEqual(f.result().status_code, 200) for f in futures]
