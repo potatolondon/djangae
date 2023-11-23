@@ -2,6 +2,7 @@ import logging
 
 from django.conf import settings
 from django.contrib.auth import get_user_model
+from django.contrib.auth.hashers import make_password
 from django.core.exceptions import (
     ImproperlyConfigured,
     SuspiciousOperation,
@@ -15,7 +16,7 @@ from djangae.contrib.googleauth import (
     _GOOG_AUTHENTICATED_USER_ID_HEADER,
     _GOOG_JWT_ASSERTION_HEADER,
     _IAP_AUDIENCE,
-    _JWT_SIGNING_ENABLED_SETTING
+    _JWT_SIGNING_ENABLED_SETTING,
 )
 from djangae.contrib.googleauth.models import UserManager
 
@@ -41,7 +42,7 @@ class IAPBackend(BaseBackend):
         atomic = _find_atomic_decorator(User)
         user_id = request.META.get(_GOOG_AUTHENTICATED_USER_ID_HEADER)
         email = request.META.get(_GOOG_AUTHENTICATED_USER_EMAIL_HEADER)
-
+        user_needs_resave = False
         # User not logged in to IAP
         if not user_id or not email:
             return
@@ -120,6 +121,7 @@ class IAPBackend(BaseBackend):
                 if not user.google_iap_id:
                     user.google_iap_id = user_id
                     user.google_iap_namespace = namespace
+                    user_needs_resave = True
                 else:
                     # Should be caught above if this isn't the case
                     assert(user.google_iap_id == user_id)
@@ -127,7 +129,9 @@ class IAPBackend(BaseBackend):
                 # Update the email as it might have changed or perhaps
                 # this user was added through some other means and the
                 # sensitivity of the email differs etc.
-                user.email = email
+                if user.email != email:
+                    user.email = email
+                    user_needs_resave = True
 
                 # If the user doesn't currently have a password, it could
                 # mean that this backend has just been enabled on existing
@@ -136,21 +140,21 @@ class IAPBackend(BaseBackend):
                 # unusable password is set.
                 if not user.password:
                     user.set_unusable_password()
+                    user_needs_resave = True
 
                 # Note we don't update the username, as that may have
                 # been overridden by something post-creation
-                user.save()
-            else:
-                with atomic():
-                    # First time we've seen this user
-                    user = User.objects.create(
-                        google_iap_id=user_id,
-                        google_iap_namespace=namespace,
-                        email=email,
-                        username=_generate_unused_username(username)
-                    )
-                    user.set_unusable_password()
+                if user_needs_resave:
                     user.save()
+            else:
+                # First time we've seen this user
+                user = User.objects.create(
+                    google_iap_id=user_id,
+                    google_iap_namespace=namespace,
+                    email=email,
+                    username=_generate_unused_username(username),
+                    password=make_password(None),
+                )
 
         return user
 
