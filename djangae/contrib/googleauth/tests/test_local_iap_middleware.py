@@ -1,3 +1,4 @@
+import concurrent.futures
 import os
 
 from django.conf import settings
@@ -124,3 +125,30 @@ class LocalIAPMiddlewareTests(TestCase):
         self.assertEqual(response.status_code, 200)
 
         self.assertEqual(User.objects.get(email="test@example.com"), existing)
+
+    def test_concurrent_requests(self):
+        # Log user in
+        existing = User.objects.create(email="test@example.com")
+
+        form_data = {
+            "email": "test@example.com"
+        }
+
+        response = self.client.post("/_dj/login/?next=/", form_data, follow=True)
+        self.assertEqual(response.status_code, 200)
+
+        self.assertEqual(User.objects.get(email="test@example.com"), existing)
+
+        # Get user through the local middleware.
+        concurrent_writes = 10
+        futures = []
+
+        with concurrent.futures.ThreadPoolExecutor(max_workers=concurrent_writes) as executor:
+            for _ in range(concurrent_writes):
+                futures.append(
+                    executor.submit(lambda:  self.client.get('/'))
+                )
+
+        concurrent.futures.wait(futures)
+
+        [self.assertEqual(f.result().status_code, 200) for f in futures]
