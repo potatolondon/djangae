@@ -37,6 +37,7 @@ class DeferIntegerKeyModel(models.Model):
     id = models.IntegerField(primary_key=True)
     touched = models.BooleanField(default=False)
     finalized = models.BooleanField(default=False)
+    number_of_touches = models.IntegerField(default=0)
 
 
 def callback(instance, touch=True):
@@ -47,6 +48,11 @@ def callback(instance, touch=True):
 
     if touch:
         instance.touched = True
+    instance.save()
+
+
+def inc_field_callback(instance):
+    instance.number_of_touches += 1
     instance.save()
 
 
@@ -204,3 +210,41 @@ class DeferIterationTestCase(TestCase):
 
         self.assertEqual(25, DeferIntegerKeyModel.objects.filter(touched=True).count())
         self.assertEqual(25, DeferIntegerKeyModel.objects.filter(finalized=True).count())
+
+    def test_qs_is_not_repeated_across_shards(self):
+        [DeferIntegerKeyModel.objects.create(id=i+1, number_of_touches=0) for i in range(25)]
+        self.assertEqual(DeferIntegerKeyModel.objects.count(), 25)
+        defer_iteration_with_finalize(
+            DeferIntegerKeyModel.objects.all(),
+            inc_field_callback,
+            noop,
+            _shards=_SHARD_COUNT
+        )
+        self.process_task_queues()
+
+        self.assertEqual(DeferIntegerKeyModel.objects.filter(number_of_touches=1).count(), 25)
+
+    def test_qs_is_not_repeated_across_shards_with_eq_filter(self):
+        [DeferIntegerKeyModel.objects.create(id=i+1, number_of_touches=0) for i in range(25)]
+        defer_iteration_with_finalize(
+            DeferIntegerKeyModel.objects.filter(number_of_touches=0),
+            inc_field_callback,
+            noop,
+            _shards=_SHARD_COUNT
+        )
+        self.process_task_queues()
+
+        self.assertEqual(DeferIntegerKeyModel.objects.filter(number_of_touches=1).count(), 25)
+
+
+    def test_qs_is_not_repeated_across_shards_with_in_lookup(self):
+        [DeferIntegerKeyModel.objects.create(id=i+1, number_of_touches=0) for i in range(25)]
+        self.assertEqual(DeferIntegerKeyModel.objects.count(), 25)
+        defer_iteration_with_finalize(
+            DeferIntegerKeyModel.objects.filter(id__in=[i+1 for i in range(25)]),
+            inc_field_callback,
+            noop,
+            _shards=_SHARD_COUNT
+        )
+        self.process_task_queues()
+        self.assertEqual(DeferIntegerKeyModel.objects.filter(number_of_touches=1).count(), 25)
