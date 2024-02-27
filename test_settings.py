@@ -69,6 +69,15 @@ DATABASES = {
         "OPTIONS": {
             "BULK_BATCH_SIZE": 25
         }
+    },
+    'another_db': {
+        'ENGINE': 'gcloudc.db.backends.datastore',
+        'INDEXES_FILE': os.path.join(os.path.abspath(os.path.dirname(__file__)), "djangaeidx2.yaml"),
+        "PROJECT": "test",
+        "NAMESPACE": "ns2",  # Use a non-default namespace to catch edge cases where we forget
+        "OPTIONS": {
+            "BULK_BATCH_SIZE": 25
+        }
     }
 }
 

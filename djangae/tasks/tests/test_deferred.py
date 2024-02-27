@@ -10,6 +10,8 @@ from djangae.test import (
     TestCase,
 )
 
+ANOTHER_DB_ALIAS = 'another_db'
+
 
 def test_task(*args, **kwargs):
     pass
@@ -43,6 +45,10 @@ def create_defer_model_b(key_value):
     DeferModelB.objects.create(pk=key_value)
 
 
+def create_defer_model_b_on_another_db(key_value):
+    DeferModelB.objects.using(ANOTHER_DB_ALIAS).create(pk=key_value)
+
+
 def process_argument(arg):
     DeferModelC.objects.create(text=arg)
 
@@ -52,6 +58,8 @@ def permanent_task_failure():
 
 
 class DeferTests(TestCase):
+    databases = '__all__'
+
     def test_large_task(self):
         random_file = os.path.join(os.path.dirname(__file__), "random_data")
         with open(random_file, "r") as f:
@@ -157,3 +165,12 @@ class DeferTests(TestCase):
         # Complete task without exception raised externally.
         self.process_task_queues()
         self.assertEqual(self.get_task_count(), 0)
+
+    def test_uses_right_database_connection(self):
+        pk = 1
+        defer(create_defer_model_b_on_another_db, pk, _using=ANOTHER_DB_ALIAS)
+        self.process_task_queues()
+        try:
+            DeferModelB.objects.using(ANOTHER_DB_ALIAS).get(pk=pk)
+        except DeferModelB.DoesNotExist:
+            self.fail("The task didn't use the right database connection")
