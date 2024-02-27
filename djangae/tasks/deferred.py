@@ -359,7 +359,7 @@ class TimeoutException(Exception):
         self.countdown = countdown
 
 
-def _process_shard(marker_id, shard_number, model, query, callback, finalize, order_field, args, kwargs):
+def _process_shard(marker_id, shard_number, model, query, using, callback, finalize, order_field, args, kwargs):
     args = args or tuple()
 
     # Set an index of the shard in the environment, which is useful for callbacks
@@ -393,7 +393,7 @@ def _process_shard(marker_id, shard_number, model, query, callback, finalize, or
     first_iteration = True
 
     last_obj = None
-    qs = model.objects.all()
+    qs = model.objects.using(using).all()
     qs.query = query
     qs = qs.order_by(*get_stable_order(model, order_field))
 
@@ -484,10 +484,10 @@ def _process_shard(marker_id, shard_number, model, query, callback, finalize, or
 
 
 def _generate_shards(
-    model, query, callback, finalize, args, kwargs, shards,
+    model, query, using, callback, finalize, args, kwargs, shards,
     delete_marker, key_ranges_getter, order_field
 ):
-    queryset = model.objects.all()
+    queryset = model.objects.all().using(using)
     queryset.query = query
 
     key_ranges = key_ranges_getter(queryset, shards)
@@ -506,7 +506,7 @@ def _generate_shards(
         is_last = i == (len(key_ranges) - 1)
         shard_number = i
 
-        qs = model.objects.all()
+        qs = model.objects.all().using(using)
         qs.query = query
         qs = qs.order_by(*get_stable_order(model, order_field))
 
@@ -527,12 +527,11 @@ def _generate_shards(
             if is_last:
                 marker.is_ready = True
             marker.save()
-
             defer(
                 _process_shard,
                 marker.pk,
                 shard_number,
-                qs.model, qs.query, callback, finalize,
+                qs.model, qs.query, qs.db, callback, finalize,
                 order_field,
                 args=args,
                 kwargs=kwargs,
@@ -551,11 +550,11 @@ def defer_iteration_with_finalize(
         queryset, callback, finalize, key_ranges_getter=datastore_key_ranges, order_field="pk",
         _queue='default', _shards=5, _delete_marker=True, _transactional=False, *args, **kwargs
 ):
-
     defer(
         _generate_shards,
         queryset.model,
         queryset.query,
+        queryset.db,
         callback,
         finalize,
         args=args,

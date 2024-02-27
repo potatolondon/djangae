@@ -46,6 +46,7 @@
 ### Bug fixes:
 
 - Made pagination cache keys deterministic
+- Fix issue where `defer_iteration_with_finalize` would always use the default connection and ignore queryset `using`.
 
 ## v1.0.1 (bug fix release)
 

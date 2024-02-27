@@ -15,6 +15,8 @@ import time
 
 _SHARD_COUNT = 5
 
+ANOTHER_DB_KEY = "another_db"
+
 
 class DeferIterationTestModel(models.Model):
     touched = models.BooleanField(default=False)
@@ -44,7 +46,6 @@ def callback(instance, touch=True):
 
     assert(shard_index >= 0)
     assert(shard_index < 5)
-
     if touch:
         instance.touched = True
     instance.save()
@@ -84,6 +85,8 @@ def noop(*args, **kwargs):
 
 
 class DeferIterationTestCase(TestCase):
+    databases = "__all__"
+
     def test_passing_args_and_kwargs(self):
         [DeferIterationTestModel.objects.create() for i in range(25)]
 
@@ -204,3 +207,15 @@ class DeferIterationTestCase(TestCase):
 
         self.assertEqual(25, DeferIntegerKeyModel.objects.filter(touched=True).count())
         self.assertEqual(25, DeferIntegerKeyModel.objects.filter(finalized=True).count())
+
+    def test_using_a_non_default_database(self):
+        [DeferIntegerKeyModel.objects.using(ANOTHER_DB_KEY).create(id=i+1) for i in range(25)]
+        defer_iteration_with_finalize(
+            DeferIntegerKeyModel.objects.using(ANOTHER_DB_KEY).all(),
+            callback,
+            finalize_int,
+            touch=True,
+        )
+
+        self.process_task_queues()
+        self.assertEqual(25, DeferIntegerKeyModel.objects.using(ANOTHER_DB_KEY).filter(touched=True).count())
