@@ -1,7 +1,11 @@
 import uuid
 
 from collections.abc import Iterable
-from gcloudc.db import transaction
+
+try:
+    from gcloudc.db import transaction
+except ImportError:
+    from django.db import transaction
 
 from djangae.contrib.search.document import Document
 from djangae.contrib.search.fields import IntegrityError
