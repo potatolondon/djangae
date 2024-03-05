@@ -13,9 +13,14 @@ EXTRAS = {
     "test": ["beautifulsoup4"],
 }
 
+if os.environ.get('CI_COMMIT_TAG'):
+    VERSION = os.environ['CI_COMMIT_TAG']
+else:
+    VERSION = '2.0.0rc5'
+
 setup(
     name=NAME,
-    version='2.0.0rc3',
+    version=VERSION,
     packages=PACKAGES,
 
     # metadata for upload to PyPI
@@ -42,7 +47,7 @@ setup(
     # dependencies
     install_requires=[
         'django>=2.2,<5.0',
-        'django-gcloud-connectors>=0.3.5',
+        'django-gcloud-connectors>=0.3.5,<1.2.0',
         'google-api-python-client>=2.27.0',
         'google-cloud-tasks>=1.5.0,<2.0.0',
         'google-cloud-logging>=3.0.0,<4.0.0',
