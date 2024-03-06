@@ -4,7 +4,7 @@
 
 - Added CloudStorageTestCaseMixin to take care of wiping data between tests
 - Upgraded the codebase to Python 3
-- Added support for Django 2.2, 3.0 and 3.1
+- Added support for Django up until 4.1
 - Switched to running the tests using tox (remove testapp etc.)
 - Replaced memcache with FileBasedCache (or Memorystore for Redis)
 - Replace storage implementation using the new python3 client

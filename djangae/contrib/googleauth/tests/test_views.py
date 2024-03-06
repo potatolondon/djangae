@@ -80,7 +80,7 @@ class LoginViewTestCase(TestCase):
         OAuthUserSession_mock.objects.filter.return_value.first.return_value = OAuth_session
 
         # adding session
-        middleware = SessionMiddleware()
+        middleware = SessionMiddleware(get_response=lambda x: x)
         middleware.process_request(request)
         request.session.save()
 
@@ -109,7 +109,7 @@ class LoginViewTestCase(TestCase):
         request = RequestFactory().get('', HTTP_HOST=host)
 
         # adding session
-        middleware = SessionMiddleware()
+        middleware = SessionMiddleware(get_response=lambda x: x)
 
         middleware.process_request(request)
         request.session.save()
@@ -131,7 +131,7 @@ class LoginViewTestCase(TestCase):
         request = RequestFactory().get('', HTTP_HOST=host)
 
         # adding session
-        middleware = SessionMiddleware()
+        middleware = SessionMiddleware(get_response=lambda x: x)
         middleware.process_request(request)
         request.session.save()
 
