@@ -48,14 +48,14 @@ Djangae's version brings this functionality to the Python 3 App Engine environme
 
 ```defer(function, *args, **kwargs)```
 
-You can optionally pass any of the following kwargs, which are used to control the behaviour, and are not passed to the function call:
+You can optionally pass any of the following optional kwargs, which are used to control the behaviour, and are not passed to the function call:
 
-* `_queue` - Name of the Cloud Tasks queue on which to run the task.
+* `_queue` - Name of the Cloud Tasks queue on which to run the task. Defaults to `"default"`, which is _not_ automatically created for you.
 * `_eta` - A `datetime` object specifying when you want the task to run.
 * `_countdown` - Number of seconds by which to delay execution of the task. Overrides `_eta`.
 * `_name` - A name for the Cloud Tasks task. Can be used to avoid repeated execution of the same task.
-* `_service` - Name of the App Engine service on which to run the task.
-* `_version` - Name of the version of the App Engine service on which to run the task.
+* `_service` - Name of the App Engine service on which to run the task. Defaults to the `default` service.
+* `_version` - Name of the version of the App Engine service on which to run the task. If no version is specified the task will run on the latest version.
 * `_instance` - Name of the App Engine instance on which to run the task.
 * `_transactional` - Boolean, which if True delays the deferring of the task until after the current database transaction has successfully committed. Defaults to False, unless called from within an atomic block, in which case it's forced to True.
 * `_using` - Name of the Django database connection to which `_transactional` relates. Defaults to "default".
@@ -72,7 +72,7 @@ Usage notes:
 
 ## djange.tasks.deferred.defer_iteration_with_finalize
 
-`defer_iteration_with_finalize(queryset, callback, finalize, key_ranges_getter=datastore_key_ranges, order_field='pk', _queue='default', _shards=5, _delete_marker=True, _transactional=False, *args, **kwargs)`
+`defer_iteration_with_finalize(queryset, callback, finalize, key_ranges_getter=datastore_key_ranges, order_field='pk', _queue='default', _service='default', _shards=5, _delete_marker=True, _transactional=False, *args, **kwargs)`
 
 This function provides similar functionality to a Mapreduce pipeline, but it's entirely self-contained and leverages
 defer to process the tasks.
