@@ -42,7 +42,7 @@ from gcloudc.db import transaction as datastore_transaction
 from google.api_core import exceptions
 from google.protobuf.timestamp_pb2 import Timestamp
 
-from djangae.environment import gae_version
+from djangae.environment import gae_version, gae_service_name
 from djangae.models import DeferIterationMarker
 from djangae.processing import (
     datastore_key_ranges,
@@ -374,6 +374,8 @@ def _process_shard(marker_id, shard_number, model, query, using, callback, final
         logger.warning("DeferIterationMarker with ID: %s has vanished, cancelling task", marker_id)
         return
 
+    # Get info about where this task is currently running, so the re-deferring stays in the same place
+    service = gae_service_name()
     queue = task_queue_name()
     if queue:
         queue = queue.rsplit("/", 1)[-1]
@@ -386,6 +388,7 @@ def _process_shard(marker_id, shard_number, model, query, using, callback, final
             args=args,
             kwargs=kwargs,
             _queue=queue,
+            _service=service,
             _countdown=_DEFAULT_SHARD_REDEFER_COUNTDOWN
         )
         return
@@ -445,6 +448,7 @@ def _process_shard(marker_id, shard_number, model, query, using, callback, final
                         *args,
                         _transactional=True,
                         _queue=queue,
+                        _service=service,
                         **kwargs
                     )
             retry(mark_shard_complete, _attempts=6)
@@ -477,6 +481,7 @@ def _process_shard(marker_id, shard_number, model, query, using, callback, final
             args=args,
             kwargs=kwargs,
             _queue=queue,
+            _service=service,
             _countdown=countdown
         )
     finally:
@@ -498,6 +503,8 @@ def _generate_shards(
         finalize_name=finalize.__name__
     )
 
+    # Get info about where this task is currently running, so the re-deferring stays in the same place
+    service = gae_service_name()
     queue = task_queue_name()
     if queue:
         queue = queue.rsplit("/", 1)[-1]
@@ -536,6 +543,7 @@ def _generate_shards(
                 args=args,
                 kwargs=kwargs,
                 _queue=queue,
+                _service=service,
                 _transactional=True
             )
 
@@ -548,7 +556,7 @@ def _generate_shards(
 
 def defer_iteration_with_finalize(
         queryset, callback, finalize, key_ranges_getter=datastore_key_ranges, order_field="pk",
-        _queue='default', _shards=5, _delete_marker=True, _transactional=False, *args, **kwargs
+        _queue='default', _service='default', _shards=5, _delete_marker=True, _transactional=False, *args, **kwargs
 ):
     defer(
         _generate_shards,
@@ -564,5 +572,6 @@ def defer_iteration_with_finalize(
         order_field=order_field,
         shards=_shards,
         _queue=_queue,
+        _service=_service,
         _transactional=_transactional
     )
