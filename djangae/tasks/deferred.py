@@ -38,7 +38,12 @@ from django.db import transaction as django_transaction
 from django.urls import reverse_lazy
 from django.utils import timezone
 from django.utils.encoding import force_str
-from gcloudc.db import transaction as datastore_transaction
+
+try:
+    from gcloudc.db import transaction as datastore_transaction
+except ImportError:
+    datastore_transaction = django_transaction
+
 from google.api_core import exceptions
 from google.protobuf.timestamp_pb2 import Timestamp
 
