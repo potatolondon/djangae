@@ -26,7 +26,11 @@ from django.shortcuts import (
 from django.urls.base import reverse
 from django.utils.functional import SimpleLazyObject
 from django.utils.http import urlencode
-from gcloudc.db.backends.datastore.transaction import TransactionFailedError
+
+try:
+    from gcloudc.db.backends.datastore.transaction import TransactionFailedError as DatabaseError
+except ImportError:
+    from django.db import DatabaseError
 
 from djangae.contrib.googleauth import (
     _GOOG_AUTHENTICATED_USER_EMAIL_HEADER,
@@ -159,7 +163,7 @@ class AuthenticationMiddleware(AuthenticationMiddleware):
 # User creation might happen in the IAP backend authentication method and this
 # can create contention.
 # User can also get updates in particular scenarios (see the IAP backend) which can lead to contention.
-@retry_on_error(_catch=TransactionFailedError, _attempts=10, _initial_wait=200, _max_wait=600)
+@retry_on_error(_catch=DatabaseError, _attempts=10, _initial_wait=200, _max_wait=600)
 def auth_with_iap(iap_backend, request):
     # Calling login() cycles the csrf token which causes POST request
     # to break. We only call login if authenticating with IAP changed
@@ -301,7 +305,7 @@ def local_iap_login_middleware(get_response):
                         if original_dict != user.__dict__:
                             retry(
                                 user.save,
-                                _catch=TransactionFailedError,
+                                _catch=DatabaseError,
                                 _attempts=10,
                                 _initial_wait=200,
                                 _max_wait=600,

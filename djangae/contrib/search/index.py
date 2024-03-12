@@ -1,7 +1,11 @@
 import uuid
 
 from collections.abc import Iterable
-from gcloudc.db import transaction
+
+try:
+    from gcloudc.db import transaction
+except ImportError:
+    from django.db import transaction
 
 from djangae.contrib.search.document import Document
 from djangae.contrib.search.fields import IntegrityError
@@ -164,7 +168,7 @@ class Index(object):
         # First-pass validation
         self._validate_documents(documents)
 
-        with transaction.atomic(independent=True):
+        with transaction.atomic():
             for document in documents:
                 record = document._record
 
