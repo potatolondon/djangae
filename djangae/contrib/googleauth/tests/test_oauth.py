@@ -282,7 +282,7 @@ class OAuthScopesRequiredTests(TestCase):
         request = RequestFactory().get('/')
         request.user = AnonymousUser()
 
-        middleware = SessionMiddleware()
+        middleware = SessionMiddleware(get_response=lambda x: x)
         middleware.process_request(request)
         request.session.save()
 
@@ -300,7 +300,7 @@ class OAuthScopesRequiredTests(TestCase):
         request = RequestFactory().get('/')
         request.user = User.objects.create_user(username='test2', email='test2@domain.com')
 
-        middleware = SessionMiddleware()
+        middleware = SessionMiddleware(get_response=lambda x: x)
         middleware.process_request(request)
         request.session.save()
 
@@ -319,7 +319,7 @@ class OAuthScopesRequiredTests(TestCase):
         request = RequestFactory().get('/')
         request.user = self.user
 
-        middleware = SessionMiddleware()
+        middleware = SessionMiddleware(get_response=lambda x: x)
         middleware.process_request(request)
         request.session.save()
 

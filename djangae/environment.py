@@ -22,6 +22,10 @@ def is_development_environment() -> bool:
     return 'GAE_ENV' not in os.environ or os.environ['GAE_ENV'] != 'standard'
 
 
+def gae_service_name():
+    return os.environ.get("GAE_SERVICE", "default")
+
+
 def gae_version() -> Optional[str]:
     """Returns the current GAE version."""
     return os.environ.get('GAE_VERSION')

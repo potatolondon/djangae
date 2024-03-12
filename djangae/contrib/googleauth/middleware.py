@@ -49,6 +49,8 @@ from .models import OAuthUserSession
 
 _OAUTH_LINK_EXPIRY_SETTING = "GOOGLEAUTH_LINK_OAUTH_SESSION_EXPIRY"
 
+logger = logging.getLogger(__name__)
+
 
 def get_user_object(request):
     """
@@ -185,7 +187,10 @@ def auth_with_iap(iap_backend, request):
             # If we don't call login, we need to set request.user ourselves
             # and update the backend string in the session
             request.user = user
-            request.session[BACKEND_SESSION_KEY] = user.backend
+            if request.session[BACKEND_SESSION_KEY] != user.backend:
+                # Avoid an unnecessary call to `session.save()`
+                # which can cause contention (see #1367)
+                request.session[BACKEND_SESSION_KEY] = user.backend
 
 
 class ProfileForm(forms.Form):
@@ -247,7 +252,7 @@ def local_iap_login_middleware(get_response):
         request._through_local_iap_middleware = True
 
         if is_production_environment():
-            logging.warning(
+            logger.warning(
                 "local_iap_login_middleware is for local development only, "
                 "and will not work on production. "
                 "You should remove it from your MIDDLEWARE setting"
@@ -279,7 +284,7 @@ def local_iap_login_middleware(get_response):
                     defaults = dict(
                         is_superuser=is_superuser,
                         email=email,
-                        google_iap_id=google_iap_id,
+                        google_iap_id=str(google_iap_id),  # Saved as string in the db
                         google_iap_namespace="auth.example.com",
                         username=f'google_iap_user:{google_iap_id}',
                     )
@@ -291,13 +296,18 @@ def local_iap_login_middleware(get_response):
                         user = User.objects.get(email_lower=email.lower())
                         for field, value in defaults.items():
                             setattr(user, field, value)
-                        retry(
-                            user.save,
-                            _catch=DatabaseError,
-                            _attempts=10,
-                            _initial_wait=200,
-                            _max_wait=600,
-                        )
+
+                        # Comparing __dict__ before and after should be ok, since the extra "_state"
+                        # is the same object. We may end up with some false positive if this changes
+                        # in the future, which is ok.
+                        if original_dict != user.__dict__:
+                            retry(
+                                user.save,
+                                _catch=DatabaseError,
+                                _attempts=10,
+                                _initial_wait=200,
+                                _max_wait=600,
+                            )
                     except User.DoesNotExist:
                         user = User.objects.create(email_lower=email.lower(), **defaults)
 

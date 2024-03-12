@@ -11,6 +11,7 @@ __pycache__/
 !/.coveragerc
 !/.editorconfig
 !/.flake8
+!/.readthedocs.yaml
 
 # C extensions
 *.so
