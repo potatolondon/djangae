@@ -168,7 +168,7 @@ class Index(object):
         # First-pass validation
         self._validate_documents(documents)
 
-        with transaction.atomic(independent=True):
+        with transaction.atomic():
             for document in documents:
                 record = document._record
 
