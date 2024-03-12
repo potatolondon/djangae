@@ -294,6 +294,8 @@ def local_iap_login_middleware(get_response):
 
                     try:
                         user = User.objects.get(email_lower=email.lower())
+                        original_dict = user.__dict__.copy()
+
                         for field, value in defaults.items():
                             setattr(user, field, value)
 
