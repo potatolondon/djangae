@@ -1,7 +1,11 @@
 import os
 
 from django.db import models
-from gcloudc.db import transaction
+
+try:
+    from gcloudc.db import transaction
+except ImportError:
+    from django.db import transaction
 
 from djangae.contrib import sleuth
 from djangae.tasks.deferred import defer, PermanentTaskFailure

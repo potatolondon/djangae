@@ -15,7 +15,10 @@ def _find_atomic_decorator(model):
     # the Django atomic() decorator can be used regardless
 
     if connection.settings_dict['ENGINE'] == 'gcloudc.db.backends.datastore':
-        from gcloudc.db.transaction import atomic
+        try:
+            from gcloudc.db.transaction import atomic
+        except ImportError:
+            from django.db.transaction import atomic
     else:
         from django.db.transaction import atomic
 
