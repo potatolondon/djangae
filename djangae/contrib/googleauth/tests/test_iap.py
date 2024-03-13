@@ -380,6 +380,8 @@ class IAPAuthenticationTests(TestCase):
 
         self.assertGreater(len(User.objects.filter(google_iap_id=google_iap_id)), 0)
 
+        authenticate(verify_token_mock, self.client, google_iap_id=google_iap_id, user_email=email)
+
         concurrent_writes = 10
         futures = []
 

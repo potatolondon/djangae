@@ -25,7 +25,7 @@ class CloudStorageTestCaseMixin(object):
         super().setUp()
 
 
-class TestCase(TestEnvironmentMixin, TestCaseMixin, test.TestCase):
+class TestCase(TestEnvironmentMixin, TestCaseMixin, test.TransactionTestCase):
     pass
 
 
