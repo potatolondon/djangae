@@ -388,7 +388,7 @@ def _process_shard(marker_id, shard_number, model, query, using, callback, final
     # Redefer if the task isn't ready to begin
     if not marker.is_ready:
         defer(
-            _process_shard, marker_id, shard_number, model, query, callback, finalize,
+            _process_shard, marker_id, shard_number, model, query, using, callback, finalize,
             order_field,
             args=args,
             kwargs=kwargs,
