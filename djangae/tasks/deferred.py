@@ -481,7 +481,14 @@ def _process_shard(marker_id, shard_number, model, query, using, callback, final
             qs = qs.filter(**get_batch_filter(last_obj, order_field, from_next=False))
 
         defer(
-            _process_shard, marker_id, shard_number, qs.model, qs.query, callback, finalize,
+            _process_shard,
+            marker_id,
+            shard_number,
+            qs.model,
+            qs.query,
+            using,
+            callback,
+            finalize,
             order_field,
             args=args,
             kwargs=kwargs,
