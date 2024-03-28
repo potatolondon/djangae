@@ -49,7 +49,7 @@ NUM_PROXIES = 1
 # Default Django middleware, with the addition of the RequestStorageMiddleware
 # for logging purposes
 MIDDLEWARE = [
-    'djangae.common.middleware.RequestStorageMiddleware',
+    'djangae.contrib.common.middleware.RequestStorageMiddleware',
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
