@@ -74,14 +74,6 @@ test:pages:
   except:
   - master
 
-test:python3.8:django2.2:
- image: $CI_REGISTRY_IMAGE:python3.8
- stage: test
- before_script:
-   - source /root/google-cloud-sdk/path.bash.inc
- script:
-   - tox -e py38-dj22
-
 test:python3.8:django3.2:
  image: $CI_REGISTRY_IMAGE:python3.8
  stage: test
@@ -89,6 +81,14 @@ test:python3.8:django3.2:
    - source /root/google-cloud-sdk/path.bash.inc
  script:
    - tox -e py38-dj32
+
+test:python3.8:django4.0:
+ image: $CI_REGISTRY_IMAGE:python3.8
+ stage: test
+ before_script:
+   - source /root/google-cloud-sdk/path.bash.inc
+ script:
+   - tox -e py38-dj40
 
 test:python3.8:django4.1:
  image: $CI_REGISTRY_IMAGE:python3.8
@@ -98,14 +98,6 @@ test:python3.8:django4.1:
  script:
    - tox -e py38-dj41
 
-test:python3.9:django2.2:
- image: $CI_REGISTRY_IMAGE:python3.9
- stage: test
- before_script:
-   - source /root/google-cloud-sdk/path.bash.inc
- script:
-   - tox -e py39-dj22
-
 test:python3.9:django3.2:
  image: $CI_REGISTRY_IMAGE:python3.9
  stage: test
@@ -113,6 +105,14 @@ test:python3.9:django3.2:
    - source /root/google-cloud-sdk/path.bash.inc
  script:
    - tox -e py39-dj32
+
+test:python3.9:django4.0:
+ image: $CI_REGISTRY_IMAGE:python3.9
+ stage: test
+ before_script:
+   - source /root/google-cloud-sdk/path.bash.inc
+ script:
+   - tox -e py39-dj40
 
 test:python3.9:django4.1:
  image: $CI_REGISTRY_IMAGE:python3.9
@@ -130,22 +130,6 @@ test:python3.9:django4.2:
  script:
    - tox -e py39-dj42
 
-test:python3.10:django3.0:
- image: $CI_REGISTRY_IMAGE:python3.10
- stage: test
- before_script:
-   - source /root/google-cloud-sdk/path.bash.inc
- script:
-   - tox -e py310-dj30
-
-test:python3.10:django3.1:
- image: $CI_REGISTRY_IMAGE:python3.10
- stage: test
- before_script:
-   - source /root/google-cloud-sdk/path.bash.inc
- script:
-   - tox -e py310-dj31
-
 test:python3.10:django3.2:
  image: $CI_REGISTRY_IMAGE:python3.10
  stage: test
@@ -153,6 +137,14 @@ test:python3.10:django3.2:
    - source /root/google-cloud-sdk/path.bash.inc
  script:
    - tox -e py310-dj32
+
+test:python3.10:django4.0:
+ image: $CI_REGISTRY_IMAGE:python3.10
+ stage: test
+ before_script:
+   - source /root/google-cloud-sdk/path.bash.inc
+ script:
+   - tox -e py310-dj40
 
 test:python3.10:django4.1:
  image: $CI_REGISTRY_IMAGE:python3.10
