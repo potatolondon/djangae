@@ -38,11 +38,16 @@ from django.db import transaction as django_transaction
 from django.urls import reverse_lazy
 from django.utils import timezone
 from django.utils.encoding import force_str
-from gcloudc.db import transaction as datastore_transaction
+
+try:
+    from gcloudc.db import transaction as datastore_transaction
+except ImportError:
+    datastore_transaction = django_transaction
+
 from google.api_core import exceptions
 from google.protobuf.timestamp_pb2 import Timestamp
 
-from djangae.environment import gae_version
+from djangae.environment import gae_version, gae_service_name
 from djangae.models import DeferIterationMarker
 from djangae.processing import (
     datastore_key_ranges,
@@ -359,7 +364,7 @@ class TimeoutException(Exception):
         self.countdown = countdown
 
 
-def _process_shard(marker_id, shard_number, model, query, callback, finalize, order_field, args, kwargs):
+def _process_shard(marker_id, shard_number, model, query, using, callback, finalize, order_field, args, kwargs):
     args = args or tuple()
 
     # Set an index of the shard in the environment, which is useful for callbacks
@@ -374,6 +379,8 @@ def _process_shard(marker_id, shard_number, model, query, callback, finalize, or
         logger.warning("DeferIterationMarker with ID: %s has vanished, cancelling task", marker_id)
         return
 
+    # Get info about where this task is currently running, so the re-deferring stays in the same place
+    service = gae_service_name()
     queue = task_queue_name()
     if queue:
         queue = queue.rsplit("/", 1)[-1]
@@ -381,11 +388,12 @@ def _process_shard(marker_id, shard_number, model, query, callback, finalize, or
     # Redefer if the task isn't ready to begin
     if not marker.is_ready:
         defer(
-            _process_shard, marker_id, shard_number, model, query, callback, finalize,
+            _process_shard, marker_id, shard_number, model, query, using, callback, finalize,
             order_field,
             args=args,
             kwargs=kwargs,
             _queue=queue,
+            _service=service,
             _countdown=_DEFAULT_SHARD_REDEFER_COUNTDOWN
         )
         return
@@ -393,7 +401,7 @@ def _process_shard(marker_id, shard_number, model, query, callback, finalize, or
     first_iteration = True
 
     last_obj = None
-    qs = model.objects.all()
+    qs = model.objects.using(using).all()
     qs.query = query
     qs = qs.order_by(*get_stable_order(model, order_field))
 
@@ -445,6 +453,7 @@ def _process_shard(marker_id, shard_number, model, query, callback, finalize, or
                         *args,
                         _transactional=True,
                         _queue=queue,
+                        _service=service,
                         **kwargs
                     )
             retry(mark_shard_complete, _attempts=6)
@@ -472,11 +481,19 @@ def _process_shard(marker_id, shard_number, model, query, callback, finalize, or
             qs = qs.filter(**get_batch_filter(last_obj, order_field, from_next=False))
 
         defer(
-            _process_shard, marker_id, shard_number, qs.model, qs.query, callback, finalize,
+            _process_shard,
+            marker_id,
+            shard_number,
+            qs.model,
+            qs.query,
+            using,
+            callback,
+            finalize,
             order_field,
             args=args,
             kwargs=kwargs,
             _queue=queue,
+            _service=service,
             _countdown=countdown
         )
     finally:
@@ -484,10 +501,10 @@ def _process_shard(marker_id, shard_number, model, query, callback, finalize, or
 
 
 def _generate_shards(
-    model, query, callback, finalize, args, kwargs, shards,
+    model, query, using, callback, finalize, args, kwargs, shards,
     delete_marker, key_ranges_getter, order_field
 ):
-    queryset = model.objects.all()
+    queryset = model.objects.all().using(using)
     queryset.query = query
 
     key_ranges = key_ranges_getter(queryset, shards)
@@ -498,6 +515,8 @@ def _generate_shards(
         finalize_name=finalize.__name__
     )
 
+    # Get info about where this task is currently running, so the re-deferring stays in the same place
+    service = gae_service_name()
     queue = task_queue_name()
     if queue:
         queue = queue.rsplit("/", 1)[-1]
@@ -506,7 +525,7 @@ def _generate_shards(
         is_last = i == (len(key_ranges) - 1)
         shard_number = i
 
-        qs = model.objects.all()
+        qs = model.objects.all().using(using)
         qs.query = query
         qs = qs.order_by(*get_stable_order(model, order_field))
 
@@ -527,16 +546,16 @@ def _generate_shards(
             if is_last:
                 marker.is_ready = True
             marker.save()
-
             defer(
                 _process_shard,
                 marker.pk,
                 shard_number,
-                qs.model, qs.query, callback, finalize,
+                qs.model, qs.query, qs.db, callback, finalize,
                 order_field,
                 args=args,
                 kwargs=kwargs,
                 _queue=queue,
+                _service=service,
                 _transactional=True
             )
 
@@ -549,13 +568,13 @@ def _generate_shards(
 
 def defer_iteration_with_finalize(
         queryset, callback, finalize, key_ranges_getter=datastore_key_ranges, order_field="pk",
-        _queue='default', _shards=5, _delete_marker=True, _transactional=False, *args, **kwargs
+        _queue='default', _service='default', _shards=5, _delete_marker=True, _transactional=False, *args, **kwargs
 ):
-
     defer(
         _generate_shards,
         queryset.model,
         queryset.query,
+        queryset.db,
         callback,
         finalize,
         args=args,
@@ -565,5 +584,6 @@ def defer_iteration_with_finalize(
         order_field=order_field,
         shards=_shards,
         _queue=_queue,
+        _service=_service,
         _transactional=_transactional
     )

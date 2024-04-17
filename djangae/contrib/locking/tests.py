@@ -8,7 +8,12 @@ from django.utils import timezone
 # DJANGAE
 from djangae.contrib import sleuth
 from djangae.test import TestCase
-from gcloudc.db.backends.datastore import transaction
+
+try:
+    from gcloudc.db.backends.datastore.transaction import TransactionFailedError as DatabaseError
+except ImportError:
+    from django.db import DatabaseError
+
 
 from .kinds import LOCK_KINDS
 from .lock import (
@@ -104,7 +109,7 @@ class DatastoreLocksTestCase(TestCase):
 
     def test_transaction_errors_are_handled(self):
         with sleuth.detonate(
-            'djangae.contrib.locking.models.LockQuerySet.filter', transaction.TransactionFailedError
+            'djangae.contrib.locking.models.LockQuerySet.filter', DatabaseError
         ):
             lock = Lock.acquire("my_lock", wait=False)
             self.assertIsNone(lock)

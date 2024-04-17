@@ -6,10 +6,6 @@ from django.core.exceptions import FieldDoesNotExist
 from django.core.cache import cache
 
 from djangae.contrib.pagination.decorators import _field_name_for_ordering
-try:
-    from gcloudc.db.backends.common.query import extract_ordering
-except ImportError:
-    from gcloudc.db.backends.datastore.query import extract_ordering
 
 
 # TODO: it would be nice to be able to define a function which is given the queryset and returns
@@ -117,12 +113,19 @@ class Paginator(paginator.Paginator):
         if not object_list.ordered:
             object_list.order_by("pk")  # Just order by PK by default
 
-        self.original_orderings = extract_ordering(object_list.query)
+        self.original_orderings = (
+            object_list.query.order_by[:]
+            or object_list.query.get_meta().ordering[:]
+        )
+
         self.field_required = _field_name_for_ordering(self.original_orderings[:])
         self.readahead = readahead
         self.allow_empty_first_page = allow_empty_first_page
 
         try:
+            if not self.original_orderings:
+                raise FieldDoesNotExist()
+
             object_list.model._meta.get_field(self.field_required)
         except FieldDoesNotExist:
             raise PaginationOrderingRequired(

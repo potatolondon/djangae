@@ -16,7 +16,7 @@ class AuthBackendTests(TestCase):
     def setUp(self):
         super().setUp()
 
-        self.middleware = AuthenticationMiddleware()
+        self.middleware = AuthenticationMiddleware(get_response=lambda x: x)
         self.request = RequestFactory().get('/')
         self.request.session = {}
         self.mock_view = Mock(_auth_middleware_exempt=False)

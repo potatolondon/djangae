@@ -3,7 +3,10 @@ from threading import local
 import os
 
 from django.conf import settings
-from djangae.environment import project_id as gae_project_id
+from djangae.environment import (
+    project_id as gae_project_id,
+    is_production_environment
+)
 
 import grpc
 from google.protobuf import field_mask_pb2
@@ -31,9 +34,7 @@ def get_cloud_tasks_client():
     """
     from google.cloud.tasks import CloudTasksClient
 
-    is_app_engine = os.environ.get("GAE_ENV") == "standard"
-
-    if is_app_engine:
+    if is_production_environment():
         if not getattr(_local, 'cloud_tasks_api_client', None):
             _local.cloud_tasks_api_client = CloudTasksClient()
         return _local.cloud_tasks_api_client

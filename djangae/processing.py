@@ -18,7 +18,7 @@ def _find_random_keys(queryset: QuerySet, shard_count: int) -> list:
         # This gets moved in gcloudc as part of the Firestore backend implementation
         from gcloudc.db.backends.datastore.expressions import Scatter
     except ImportError:
-        from gcloudc.db.backends.common.expressions import Scatter
+        from gcloudc.db.backends.common.parsers.expressions import Scatter
 
     OVERSAMPLING_FACTOR = 32
 

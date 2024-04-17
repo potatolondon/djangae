@@ -145,7 +145,7 @@ def start_emulators(
     os.makedirs(storage_dir, exist_ok=True)
     os.makedirs(datastore_dir, exist_ok=True)
 
-    enable_test_environment_variables()
+    enable_test_environment_variables(project_id=project_id)
 
     if "datastore" in emulators:
         if not port_is_open(SERVICE_HOST, datastore_port):
@@ -248,13 +248,15 @@ def stop_emulators(emulators=None):
             _kill_proc_tree(process.pid)
 
 
-def enable_test_environment_variables():
+def enable_test_environment_variables(project_id=DEFAULT_PROJECT_ID):
     """
         Sets up sample environment variables that are available on production
     """
 
-    os.environ.setdefault("GOOGLE_CLOUD_PROJECT", DEFAULT_PROJECT_ID)
-    os.environ.setdefault("GAE_APPLICATION", DEFAULT_GAE_APPLICATION)
+    gae_application_id = "e~{}".format(project_id)
+
+    os.environ.setdefault("GOOGLE_CLOUD_PROJECT", project_id)
+    os.environ.setdefault("GAE_APPLICATION", gae_application_id)
     os.environ.setdefault("GAE_ENV", "development")
 
 

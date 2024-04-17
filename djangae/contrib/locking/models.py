@@ -8,8 +8,13 @@ import time
 from django.db import models
 from django.utils import timezone
 
-from gcloudc.db import transaction
-from gcloudc.db.backends.datastore.transaction import TransactionFailedError
+try:
+    from gcloudc.db import transaction
+    from gcloudc.db.backends.datastore.transaction import TransactionFailedError as DatabaseError
+except ImportError:
+    from django.db import transaction
+    from django.db import DatabaseError
+
 from gcloudc.db.models.fields.charfields import CharField
 
 
@@ -34,7 +39,7 @@ class LockQuerySet(models.query.QuerySet):
 
         def trans():
             """ Wrapper for the atomic transaction that handles transaction errors """
-            @transaction.atomic(independent=True)
+            @transaction.atomic()
             def _trans():
                 lock = self.filter(identifier_hash=identifier_hash).first()
                 if lock:
@@ -54,7 +59,7 @@ class LockQuerySet(models.query.QuerySet):
                     )
             try:
                 return _trans()
-            except TransactionFailedError:
+            except DatabaseError:
                 return None
 
         lock = trans()

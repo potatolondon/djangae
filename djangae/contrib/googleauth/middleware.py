@@ -26,7 +26,11 @@ from django.shortcuts import (
 from django.urls.base import reverse
 from django.utils.functional import SimpleLazyObject
 from django.utils.http import urlencode
-from gcloudc.db.backends.datastore.transaction import TransactionFailedError
+
+try:
+    from gcloudc.db.backends.datastore.transaction import TransactionFailedError as DatabaseError
+except ImportError:
+    from django.db import DatabaseError
 
 from djangae.contrib.googleauth import (
     _GOOG_AUTHENTICATED_USER_EMAIL_HEADER,
@@ -44,6 +48,8 @@ from .backends.oauth2 import OAuthBackend
 from .models import OAuthUserSession
 
 _OAUTH_LINK_EXPIRY_SETTING = "GOOGLEAUTH_LINK_OAUTH_SESSION_EXPIRY"
+
+logger = logging.getLogger(__name__)
 
 
 def get_user_object(request):
@@ -157,7 +163,7 @@ class AuthenticationMiddleware(AuthenticationMiddleware):
 # User creation might happen in the IAP backend authentication method and this
 # can create contention.
 # User can also get updates in particular scenarios (see the IAP backend) which can lead to contention.
-@retry_on_error(_catch=TransactionFailedError, _attempts=10, _initial_wait=200, _max_wait=600)
+@retry_on_error(_catch=DatabaseError, _attempts=10, _initial_wait=200, _max_wait=600)
 def auth_with_iap(iap_backend, request):
     # Calling login() cycles the csrf token which causes POST request
     # to break. We only call login if authenticating with IAP changed
@@ -181,7 +187,10 @@ def auth_with_iap(iap_backend, request):
             # If we don't call login, we need to set request.user ourselves
             # and update the backend string in the session
             request.user = user
-            request.session[BACKEND_SESSION_KEY] = user.backend
+            if request.session[BACKEND_SESSION_KEY] != user.backend:
+                # Avoid an unnecessary call to `session.save()`
+                # which can cause contention (see #1367)
+                request.session[BACKEND_SESSION_KEY] = user.backend
 
 
 class ProfileForm(forms.Form):
@@ -243,7 +252,7 @@ def local_iap_login_middleware(get_response):
         request._through_local_iap_middleware = True
 
         if is_production_environment():
-            logging.warning(
+            logger.warning(
                 "local_iap_login_middleware is for local development only, "
                 "and will not work on production. "
                 "You should remove it from your MIDDLEWARE setting"
@@ -275,7 +284,7 @@ def local_iap_login_middleware(get_response):
                     defaults = dict(
                         is_superuser=is_superuser,
                         email=email,
-                        google_iap_id=google_iap_id,
+                        google_iap_id=str(google_iap_id),  # Saved as string in the db
                         google_iap_namespace="auth.example.com",
                         username=f'google_iap_user:{google_iap_id}',
                     )
@@ -285,15 +294,22 @@ def local_iap_login_middleware(get_response):
 
                     try:
                         user = User.objects.get(email_lower=email.lower())
+                        original_dict = user.__dict__.copy()
+
                         for field, value in defaults.items():
                             setattr(user, field, value)
-                        retry(
-                            user.save,
-                            _catch=TransactionFailedError,
-                            _attempts=10,
-                            _initial_wait=200,
-                            _max_wait=600,
-                        )
+
+                        # Comparing __dict__ before and after should be ok, since the extra "_state"
+                        # is the same object. We may end up with some false positive if this changes
+                        # in the future, which is ok.
+                        if original_dict != user.__dict__:
+                            retry(
+                                user.save,
+                                _catch=DatabaseError,
+                                _attempts=10,
+                                _initial_wait=200,
+                                _max_wait=600,
+                            )
                     except User.DoesNotExist:
                         user = User.objects.create(email_lower=email.lower(), **defaults)
 
