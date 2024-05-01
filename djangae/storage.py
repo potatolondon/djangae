@@ -7,13 +7,14 @@ from io import (
 
 import requests
 from django.conf import settings
-from django.core.files.storage import (
-    File,
-    Storage,
-)
+from django.core.files import File
+from django.core.files.storage import Storage
 from google.cloud.exceptions import NotFound
 
-from djangae.environment import project_id, is_production_environment
+from djangae.environment import (
+    is_production_environment,
+    project_id,
+)
 
 BUCKET_KEY = "CLOUD_STORAGE_BUCKET"
 
