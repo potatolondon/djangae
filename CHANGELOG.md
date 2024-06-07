@@ -47,6 +47,7 @@
 
 - Made pagination cache keys deterministic
 - Fix issue where `defer_iteration_with_finalize` would always use the default connection and ignore queryset `using`.
+- Fix issue where `_generate_unused_username` uses the `googleauth.User` User model instead of the configured `AUTH_USER_MODEL`.
 
 ## v1.0.1 (bug fix release)
 

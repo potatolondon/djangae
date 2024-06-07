@@ -4,7 +4,7 @@ from django.db import (
     connections,
     router,
 )
-from ..models import User
+from django.contrib.auth import get_user_model
 
 
 def _find_atomic_decorator(model):
@@ -40,6 +40,7 @@ def _generate_unused_username(ideal):
         and return either that ideal username, or an unused generated
         one using the ideal username as a base
     """
+    User = get_user_model()
 
     if not User.objects.filter(username_lower=ideal.lower()).exists():
         return ideal
