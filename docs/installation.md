@@ -82,13 +82,16 @@ app = application
 If you want to use the Google Cloud Datastore as your database backend, add the following to your `settings.py`:
 
 ```python
-from djangae.environment import project_id
+from djangae.environment import project_id, is_development_environment
 
 DATABASES = {
     'default': {
         'ENGINE': 'gcloudc.db.backends.datastore',
         'PROJECT': project_id(),
         'INDEXES_FILE': DATASTORE_INDEX_YAML,
+        'OPTIONS': {
+            'count_mode': 'emulated' if is_development_environment else 'native',
+        }
     }
 }
 ```

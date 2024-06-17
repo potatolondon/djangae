@@ -67,7 +67,8 @@ DATABASES = {
         "PROJECT": "test",
         "NAMESPACE": "ns1",  # Use a non-default namespace to catch edge cases where we forget
         "OPTIONS": {
-            "BULK_BATCH_SIZE": 25
+            "BULK_BATCH_SIZE": 25,
+            "count_mode": "emulated",
         }
     },
     'another_db': {
@@ -76,7 +77,8 @@ DATABASES = {
         "PROJECT": "test",
         "NAMESPACE": "ns2",  # Use a non-default namespace to catch edge cases where we forget
         "OPTIONS": {
-            "BULK_BATCH_SIZE": 25
+            "BULK_BATCH_SIZE": 25,
+            "count_mode": "emulated",
         }
     }
 }
