@@ -113,7 +113,7 @@ class DeferTests(TestCase):
             defer(test_task)
 
             self.assertTrue(_create_task.called)
-            routing = _create_task.calls[0].args[2]['app_engine_http_request']['app_engine_routing']
+            routing = _create_task.calls[0].kwargs["request"]["task"]["app_engine_http_request"]["app_engine_routing"]
             self.assertFalse('service' in routing)
             self.assertFalse('instance' in routing)
             self.assertEqual(routing['version'], gae_version)
@@ -130,7 +130,7 @@ class DeferTests(TestCase):
             defer(test_task, _service=service, _version=version, _instance=instance)
 
             self.assertTrue(_create_task.called)
-            routing = _create_task.calls[0].args[2]['app_engine_http_request']['app_engine_routing']
+            routing = _create_task.calls[0].kwargs["request"]["task"]["app_engine_http_request"]["app_engine_routing"]
             self.assertEqual(routing['service'], service)
             self.assertEqual(routing['version'], version)
             self.assertEqual(routing['instance'], instance)

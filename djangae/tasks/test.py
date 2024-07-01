@@ -56,31 +56,31 @@ class TestCaseMixin(LiveServerTestCase):
 
         for queue in self.task_client.list_queues(parent=parent):
             # Make sure the queue is paused
-            self.task_client.pause_queue(queue.name)
+            self.task_client.pause_queue(name=queue.name)
 
             # Make sure it's empty
-            self.task_client.purge_queue(queue.name)
+            self.task_client.purge_queue(name=queue.name)
 
     def _get_queues(self, queue_name=None):
         if queue_name:
             path = cloud_tasks_queue_path(queue_name)
-            queue = self.task_client.get_queue(path)
+            queue = self.task_client.get_queue(name=path)
             queues = [queue]
         else:
             parent = cloud_tasks_parent_path()
-            queues = self.task_client.list_queues(parent)
+            queues = self.task_client.list_queues(parent=parent)
 
         return queues
 
     def flush_task_queues(self, queue_name=None):
         for queue in self._get_queues(queue_name=queue_name):
-            self.task_client.purge_queue(queue.name)
+            self.task_client.purge_queue(name=queue.name)
 
     def get_task_count(self, queue_name=None):
         count = 0
         for queue in self._get_queues(queue_name=queue_name):
             path = queue.name
-            count += len(list(self.task_client.list_tasks(path)))
+            count += len(list(self.task_client.list_tasks(parent=path)))
 
         return count
 
@@ -90,7 +90,7 @@ class TestCaseMixin(LiveServerTestCase):
     def _get_all_tasks_for_queues(self, queue_names):
         tasks = []
         for path in queue_names:
-            tasks += [x for x in self.task_client.list_tasks(path)]
+            tasks += [x for x in self.task_client.list_tasks(parent=path)]
         return tasks
 
     def process_task_queues(self, queue_name=None, failure_behaviour=TaskFailedBehaviour.RAISE_ERROR):
@@ -108,7 +108,7 @@ class TestCaseMixin(LiveServerTestCase):
                 # on the live server and it exists so that
                 # local development servers can direct a task
                 # to run on a particular port.
-                response = self.task_client.run_task(task.name + "?port=%s" % self._server_port)
+                response = self.task_client.run_task(name=task.name + "?port=%s" % self._server_port)
 
                 # If the returned status wasn't a success then
                 # drop into the except block below to handle the

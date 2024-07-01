@@ -245,7 +245,7 @@ def _schedule_task(
 
     try:
         # Defer the task
-        task = client.create_task(path, task)  # FIXME: Handle transactional
+        task = client.create_task(request={"parent": path, "task": task})  # FIXME: Handle transactional
 
         # Delete the key as it wasn't needed
         if deferred_task:
