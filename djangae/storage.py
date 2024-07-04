@@ -4,27 +4,29 @@ from io import (
     BytesIO,
     UnsupportedOperation,
 )
+from typing import Optional
 
 import requests
-from django.conf import settings
 from django.core.files import File
-from django.core.files.storage import (
-    Storage,
-)
+from django.core.files.storage import Storage
+from django.utils.functional import cached_property
+from google.cloud import storage
 from google.cloud.exceptions import NotFound
 
-from djangae.environment import project_id, is_production_environment
+from djangae.environment import (
+    is_production_environment,
+    project_id,
+)
 
 BUCKET_KEY = "CLOUD_STORAGE_BUCKET"
 
 logger = logging.getLogger(__name__)
 
-
 def _get_storage_client():
     """Gets an instance of a google CloudStorage Client
 
-        Note: google storage python library depends on env variables read at
-        module import time, so that should be set before import if overwrite needed
+    Note: google storage python library depends on env variables read at
+    module import time, so that should be set before import if overwrite needed
     """
 
     http = None
@@ -32,7 +34,6 @@ def _get_storage_client():
     if not is_production_environment():
         http = requests.Session()
 
-    from google.cloud import storage
     return storage.Client(
         project=project_id(),
         _http=http,
@@ -48,59 +49,117 @@ def _get_default_bucket_name():
     return default_bucket
 
 
-def get_bucket_name():
-    """Returns the configured bucket name
+# def get_bucket_name():
+#     """Returns the configured bucket name
 
-    Bucket name can be configured via settings[BUCKET_KEY]. If not set, it
-    defaults to the GCP default bucket (<project_id>.appspot.com)
+#     Bucket name can be configured via settings[BUCKET_KEY]. If not set, it
+#     defaults to the GCP default bucket (<project_id>.appspot.com)
 
-    Raises:
-        ImproperlyConfigured: if neither configuration nor default can be retreived
+#     Raises:
+#         ImproperlyConfigured: if neither configuration nor default can be retreived
 
-    Returns:
-        str -- name of the configured bucket
-    """
-    bucket_name = getattr(settings, BUCKET_KEY, None)
-    if not bucket_name:
-        bucket_name = _get_default_bucket_name()
+#     Returns:
+#         str -- name of the configured bucket
+#     """
+#     bucket_name = getattr(settings, BUCKET_KEY, None)
+#     if not bucket_name:
+#         bucket_name = _get_default_bucket_name()
 
-    if not bucket_name:
-        from django.core.exceptions import ImproperlyConfigured
-        message = "{} not set or no default bucket configured".format(BUCKET_KEY)
-        raise ImproperlyConfigured(message)
+#     if not bucket_name:
+#         from django.core.exceptions import ImproperlyConfigured
 
-    return bucket_name
+#         message = "{} not set or no default bucket configured".format(BUCKET_KEY)
+#         raise ImproperlyConfigured(message)
+
+#     return bucket_name
 
 
 class CloudStorageFile(File):
-    def __init__(self, bucket, name=None, mode="rb"):
-        self._name = name
-        self._mode = mode
-        self._blob = bucket.blob(name)
+    def __init__(
+        self,
+        bucket: storage.Bucket,
+        name: str,
+        mode="rb",
+        chunk_size: Optional[int] = None,
+        ignore_flush: Optional[bool] = None,
+        encoding: Optional[str] = None,
+        errors: Optional[str] = None,
+        newline: Optional[str] = None,
+    ):
+        if "r" in mode and "w" in mode:
+            raise UnsupportedOperation("File cannot be open in '{}' mode.".format(mode))
 
-    def read(self, num_bytes=None):
-        if "r" not in self._mode:
-            raise UnsupportedOperation("File open in '{}' mode is not readable".format(self._mode))
+        self.name = name
 
-        f = BytesIO()
-        self._blob.download_to_file(f)
-        content = f.getvalue()
-        return content[:num_bytes]
+        if "w" in mode:
+            self._blob = bucket.blob(name)
+        else:
+            self._blob = bucket.get_blob(name)
+            if not self._blob:
+                raise FileNotFoundError(f"File '{name} not found in bucket {bucket.name}'")
 
-    def write(self, content):
-        raise NotImplementedError("Write of CloudStorageFile object not currently supported.")
+        self.file = self._blob.open(
+            mode=mode,
+            chunk_size=chunk_size,
+            ignore_flush=ignore_flush,
+            encoding=encoding,
+            errors=errors,
+            newline=newline,  # type: ignore - AFAICT the types are compatible in practise
+        )
+
+    @cached_property
+    def size(self):
+        return self._blob.size
 
 
 class CloudStorage(Storage):
-    """
-        Google Cloud Storage backend, set this as your default backend
-        for ease of use, you can specify and non-default bucket in the
-        constructor.
+    def __init__(self, bucket_name: Optional[str] = None, **kwargs):
+        if bucket_name is None:
+            bucket_name = _get_default_bucket_name()
 
-        You can modify objects access control by changing google_acl
-        attribute to one of mentioned by docs (XML column):
-        https://cloud.google.com/storage/docs/access-control/lists?hl=en#predefined-acl
+        self.bucket_name = bucket_name
+        self._client: Optional[storage.Client] = None
+        self._options = kwargs
+
+        logging.debug('Initialised CloudStorage using bucket "%rs"', bucket_name)
+
+    @property
+    def client(self) -> storage.Client:
+        if self._client is None:
+            self._client = _get_storage_client()
+
+        return self._client
+
+    @property
+    def bucket(self) -> storage.Bucket:
+        if not self._bucket:
+            try:
+                self._bucket = self.client.get_bucket(self.bucket_name)
+            except NotFound as e:
+                logger.error("Bucket '{}' does not exist".format(self.bucket_name))
+                raise e
+
+        return self._bucket
+
+    def _open(self, name: str, mode: str):
+        """Called internally by storage.open
+
+        Django's default mode is "rb"
+        """
+        return CloudStorageFile(self.bucket, name, mode, **self._options)
+
+
+class LegacyCloudStorage(Storage):
     """
+    Google Cloud Storage backend, set this as your default backend
+    for ease of use, you can specify and non-default bucket in the
+    constructor.
+
+    You can modify objects access control by changing google_acl
+    attribute to one of mentioned by docs (XML column):
+    https://cloud.google.com/storage/docs/access-control/lists?hl=en#predefined-acl
+    """
+
     def __init__(self, bucket_name=None, google_acl=None):
         self._bucket_name = bucket_name if bucket_name else get_bucket_name()
         self._client = None
@@ -185,4 +244,6 @@ class CloudStorage(Storage):
             blob = self.bucket.blob(name)
             return blob.public_url
         else:
-            return "{}/{}/{}".format(os.environ["STORAGE_EMULATOR_HOST"], self._bucket_name, name)
+            return "{}/{}/{}".format(
+                os.environ["STORAGE_EMULATOR_HOST"], self._bucket_name, name
+            )

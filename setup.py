@@ -53,7 +53,7 @@ setup(
         # requests required by cloud storage file backend
         "requests>=2.22.0",
         "python-jose[cryptography]==3.2.0",
-        "google-cloud-storage==1.43.0",
+        "google-cloud-storage>=2.0.0",
         # required minimum version for oauth backend
         "google-auth>=2.3.2,<3.0dev",
     ],
