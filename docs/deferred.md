@@ -55,7 +55,7 @@ You can optionally pass any of the following optional kwargs, which are used to 
 * `_countdown` - Number of seconds by which to delay execution of the task. Overrides `_eta`.
 * `_name` - A name for the Cloud Tasks task. Can be used to avoid repeated execution of the same task.
 * `_service` - Name of the App Engine service on which to run the task. Defaults to the `default` service.
-* `_version` - Name of the version of the App Engine service on which to run the task. If no version is specified the task will run on the latest version.
+* `_version` - Name of the version of the App Engine service on which to run the task. If no version is specified the task will run on the latest version. (See usage notes.)
 * `_instance` - Name of the App Engine instance on which to run the task.
 * `_transactional` - Boolean, which if True delays the deferring of the task until after the current database transaction has successfully committed. Defaults to False, unless called from within an atomic block, in which case it's forced to True.
 * `_using` - Name of the Django database connection to which `_transactional` relates. Defaults to "default".
@@ -69,6 +69,11 @@ Usage notes:
  - It is good practice to not pass Django model instances as arguments for the function, as if you do, when the function runs it will get the model instance as it was when the function was deferred, which may be different to how that instance is in the database when the function _runs_, especially if the task gets retried due to an error, or if the `_countdown` or `_eta` was specified. It's better to pass the PK of the instance and reload it inside the function.
  - Transactional tasks do not *guarantee* that the task will run. It's possible (but unlikely) for the transaction to complete
    successfully, but the queuing of the task to fail. It is not possible for the transaction to fail and the task to queue however.
+- If `_version` is not specified then it will default to the current latest version of the App Engine service from which `defer` is being called.
+    * If you specify a custom `_service`, but the call to `defer` is not made from that service, you run the risk that the default version of the current service doesn't exist in the version you've specified.
+    * Specifying a version of `"default"` will invoke slightly different behaviour: it will allow App Engine to select the default version of the service when the task is _run_, rather than when it is _created_.
+      This can be used to auto-select the default version when specifying a custom service. It also means that deploying new code changes to the default version will cause any paused, queued or failing tasks to be (re-)run on that new code.
+      Due to the fact that `defer` pickles the function to be run, some code changes (e.g. renaming the deferred function) may mean that the payload can no longer be un-pickled in the new code context.
 
 ## djange.tasks.deferred.defer_iteration_with_finalize
 
