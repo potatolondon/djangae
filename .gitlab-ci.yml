@@ -82,6 +82,7 @@ test:python3.10:django4.2:
    - tox -e py310-dj42 -- --settings=settings.test_settings
 
 test:python3.10:django5.0:
+ allow_failure: true  # Until gcloudc supports it
  image: $CI_REGISTRY_IMAGE:python3.10
  stage: test
  before_script:
@@ -90,6 +91,7 @@ test:python3.10:django5.0:
    - tox -e py310-dj50 -- --settings=settings.test_settings
 
 test:python3.10:django5.1:
+ allow_failure: true  # Until gcloudc supports it
  image: $CI_REGISTRY_IMAGE:python3.10
  stage: test
  before_script:
@@ -106,6 +108,7 @@ test:python3.11:django4.2:
    - tox -e py311-dj42 -- --settings=settings.test_settings
 
 test:python3.11:django5.0:
+ allow_failure: true  # Until gcloudc supports it
  image: $CI_REGISTRY_IMAGE:python3.11
  stage: test
  before_script:
@@ -114,6 +117,7 @@ test:python3.11:django5.0:
    - tox -e py311-dj50 -- --settings=settings.test_settings
 
 test:python3.11:django5.1:
+ allow_failure: true  # Until gcloudc supports it
  image: $CI_REGISTRY_IMAGE:python3.11
  stage: test
  before_script:
@@ -130,6 +134,7 @@ test:python3.12:django4.2:
    - tox -e py312-dj42 -- --settings=settings.test_settings
 
 test:python3.12:django5.0:
+ allow_failure: true  # Until gcloudc supports it
  image: $CI_REGISTRY_IMAGE:python3.12
  stage: test
  before_script:
@@ -138,6 +143,7 @@ test:python3.12:django5.0:
    - tox -e py312-dj50 -- --settings=settings.test_settings
 
 test:python3.12:django5.1:
+ allow_failure: true  # Until gcloudc supports it
  image: $CI_REGISTRY_IMAGE:python3.12
  stage: test
  before_script:
