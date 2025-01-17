@@ -324,10 +324,17 @@ def defer(obj, *args, **kwargs):
     queue = kwargs.pop("_queue", _DEFAULT_QUEUE) or _DEFAULT_QUEUE
 
     # build the routing payload
-    # default to using the current GAE version
+    # default to using the current GAE version of the service in which we're currently running
     routing = {
         "version": task_args["version"] or gae_version(),
     }
+    if routing["version"] == "default":
+        # If the magic version name of 'default' is specified, delete the 'version' entry so that
+        # Cloud Tasks automatically selects the default version (of the specified service) when the
+        # task is *run*. This allows code changes to be deployed after the defer, which can be handy
+        # but can break the deferred task, hence is not the default behaviour.
+        del routing["version"]
+
     for key in ("service", "instance"):
         if task_args.get(key):
             routing[key] = task_args[key]
@@ -364,7 +371,9 @@ class TimeoutException(Exception):
         self.countdown = countdown
 
 
-def _process_shard(marker_id, shard_number, model, query, using, callback, finalize, order_field, args, kwargs):
+def _process_shard(
+    marker_id, shard_number, model, query, using, callback, finalize, order_field, version, args, kwargs
+):
     args = args or tuple()
 
     # Set an index of the shard in the environment, which is useful for callbacks
@@ -394,6 +403,7 @@ def _process_shard(marker_id, shard_number, model, query, using, callback, final
             kwargs=kwargs,
             _queue=queue,
             _service=service,
+            _version=version,
             _countdown=_DEFAULT_SHARD_REDEFER_COUNTDOWN
         )
         return
@@ -454,6 +464,7 @@ def _process_shard(marker_id, shard_number, model, query, using, callback, final
                         _transactional=True,
                         _queue=queue,
                         _service=service,
+                        _version=version,
                         **kwargs
                     )
             retry(mark_shard_complete, _attempts=6)
@@ -494,6 +505,7 @@ def _process_shard(marker_id, shard_number, model, query, using, callback, final
             kwargs=kwargs,
             _queue=queue,
             _service=service,
+            _version=version,
             _countdown=countdown
         )
     finally:
@@ -502,7 +514,7 @@ def _process_shard(marker_id, shard_number, model, query, using, callback, final
 
 def _generate_shards(
     model, query, using, callback, finalize, args, kwargs, shards,
-    delete_marker, key_ranges_getter, order_field
+    delete_marker, key_ranges_getter, order_field, version,
 ):
     queryset = model.objects.all().using(using)
     queryset.query = query
@@ -552,10 +564,12 @@ def _generate_shards(
                 shard_number,
                 qs.model, qs.query, qs.db, callback, finalize,
                 order_field,
+                version,
                 args=args,
                 kwargs=kwargs,
                 _queue=queue,
                 _service=service,
+                _version=version,
                 _transactional=True
             )
 
@@ -568,7 +582,8 @@ def _generate_shards(
 
 def defer_iteration_with_finalize(
         queryset, callback, finalize, key_ranges_getter=datastore_key_ranges, order_field="pk",
-        _queue='default', _service='default', _shards=5, _delete_marker=True, _transactional=False, *args, **kwargs
+        _queue='default', _service='default', _version=None, _shards=5, _delete_marker=True,
+        _transactional=False, *args, **kwargs
 ):
     defer(
         _generate_shards,
@@ -582,8 +597,10 @@ def defer_iteration_with_finalize(
         delete_marker=_delete_marker,
         key_ranges_getter=key_ranges_getter,
         order_field=order_field,
+        version=_version,
         shards=_shards,
         _queue=_queue,
         _service=_service,
+        _version=_version,
         _transactional=_transactional
     )
