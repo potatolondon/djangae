@@ -71,7 +71,7 @@ def ensure_required_queues_exist():
         # In our task settings we expect that the queue name will not
         # include the path, otherwise moving the app, changing location
         # etc. involves changing a load of settings.
-        assert("/" not in queue_name)  # Don't specify the full path
+        assert ("/" not in queue_name)  # Don't specify the full path
 
         update_mask = ["name"]
         queue_dict = {}
@@ -112,7 +112,7 @@ def cloud_tasks_project():
 
 def cloud_tasks_location():
     location_id = getattr(settings, CLOUD_TASKS_LOCATION_SETTING, None)
-    assert(location_id)
+    assert (location_id)
     return location_id
 
 
@@ -126,8 +126,8 @@ def cloud_tasks_parent_path():
     location_id = getattr(settings, CLOUD_TASKS_LOCATION_SETTING, None)
     project_id = cloud_tasks_project()
 
-    assert(project_id)
-    assert(location_id)
+    assert (project_id)
+    assert (location_id)
 
     return "projects/%s/locations/%s" % (
         project_id, location_id

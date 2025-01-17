@@ -343,10 +343,10 @@ def defer(obj, *args, **kwargs):
     pickled = _serialize(obj, *args, **kwargs)
 
     project_id = cloud_tasks_project()
-    assert(project_id)  # Should be checked in apps.py ready()
+    assert (project_id)  # Should be checked in apps.py ready()
 
     location = getattr(settings, CLOUD_TASKS_LOCATION_SETTING, None)
-    assert(location)  # Should be checked in apps.py
+    assert (location)  # Should be checked in apps.py
 
     args = (project_id, location, queue, pickled, task_args, small_task, deferred_handler_url, task_headers)
 

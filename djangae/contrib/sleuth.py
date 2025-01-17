@@ -148,7 +148,7 @@ class Emplace(ContextDecorator):
         self._clear = clear
         self._target = _evaluate_path(obj_path)
         self._original_values = None
-        assert(isinstance(self._target, (list, dict)))
+        assert (isinstance(self._target, (list, dict)))
 
         self._replacement_values = replacement_values
 

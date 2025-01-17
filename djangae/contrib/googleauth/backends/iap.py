@@ -89,7 +89,7 @@ class IAPBackend(BaseBackend):
                 )
 
         email = UserManager.normalize_email(email)
-        assert(email)
+        assert (email)
 
         username = email.split("@", 1)[0]
 
@@ -124,7 +124,7 @@ class IAPBackend(BaseBackend):
                     user_needs_resave = True
                 else:
                     # Should be caught above if this isn't the case
-                    assert(user.google_iap_id == user_id)
+                    assert (user.google_iap_id == user_id)
 
                 # Update the email as it might have changed or perhaps
                 # this user was added through some other means and the

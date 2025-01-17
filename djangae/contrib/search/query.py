@@ -266,7 +266,7 @@ def build_document_queryset(
         set of document ids based on simple ranking rules.
     """
 
-    assert(index.id)
+    assert (index.id)
 
     tokenization = _tokenize_query_string(query_string, match_stopwords=match_stopwords)
     if not tokenization:

@@ -23,7 +23,7 @@ def test_task(*args, **kwargs):
 
 def assert_cache_wiped(instance):
     field = DeferModelA._meta.get_field("b")
-    assert(field.get_cached_value(instance, None) is None)
+    assert (field.get_cached_value(instance, None) is None)
 
 
 class DeferModelA(models.Model):

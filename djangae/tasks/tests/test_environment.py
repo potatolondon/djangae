@@ -152,10 +152,10 @@ class CsrfExemptIfTaskTest(TestCase):
 
 
 def deferred_func():
-    assert(task_name())
-    assert(task_queue_name())
-    assert(task_execution_count())
-    assert(not is_in_cron())
+    assert (task_name())
+    assert (task_queue_name())
+    assert (task_execution_count())
+    assert (not is_in_cron())
 
 
 class EnvironmentTests(TestCase):
