@@ -1,4 +1,4 @@
-FROM python:3.9
+FROM python:3.12
 SHELL ["/bin/bash", "-c"]
 RUN apt-get update
 RUN apt-get install -y default-jre
