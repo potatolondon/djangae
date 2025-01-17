@@ -60,7 +60,7 @@ class OAuthBackend(BaseBackend):
                 if not user.google_oauth_id:
                     user.google_oauth_id = oauth_session.pk
                 else:
-                    assert(user.google_oauth_id == oauth_session.pk)
+                    assert (user.google_oauth_id == oauth_session.pk)
                     # We got the user by google_oauth_id, but their email
                     # might have changed (maybe), so update that just in case
                     user.email = email

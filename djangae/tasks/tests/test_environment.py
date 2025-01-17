@@ -152,10 +152,10 @@ class CsrfExemptIfTaskTest(TestCase):
 
 
 def deferred_func():
-    assert(task_name())
-    assert(task_queue_name())
-    assert(task_execution_count())
-    assert(not is_in_cron())
+    assert (task_name())
+    assert (task_queue_name())
+    assert (task_execution_count())
+    assert (not is_in_cron())
 
 
 class EnvironmentTests(TestCase):
@@ -182,10 +182,10 @@ class EnvironmentTests(TestCase):
         # All helpers should return their active value
         self.assertTrue(is_in_task())
         self.assertTrue(is_in_cron())
-        self.assertEquals(task_name(), "footask")
-        self.assertEquals(task_queue_name(), "fooqueue")
-        self.assertEquals(task_retry_count(), 1)
-        self.assertEquals(task_execution_count(), 1)
+        self.assertEqual(task_name(), "footask")
+        self.assertEqual(task_queue_name(), "fooqueue")
+        self.assertEqual(task_retry_count(), 1)
+        self.assertEqual(task_execution_count(), 1)
 
         # Running the middleware should unset flags
         def get_response(request):

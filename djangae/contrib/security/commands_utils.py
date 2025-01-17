@@ -95,7 +95,7 @@ def display_as_table(views, headers=('URL', 'Handler path', 'Decorators & Mixins
                 cell = [",".join(cell[i:i+2]) for i in range(0, len(cell), 2)]
 
             mixins = cell
-            if type(mixins) == list:
+            if isinstance(mixins, list):
                 for i, line in enumerate(mixins):
                     cell = line.strip()
 

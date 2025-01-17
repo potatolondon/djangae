@@ -25,7 +25,7 @@ GitLab: [https://gitlab.com/potato-oss/djangae/djangae](https://gitlab.com/potat
 
 ## Supported Python & Django Versions
 
-Djangae currently supports Django 2.2, 3.2 and 4.1, using Python 3.8, 3.9 or 3.10.
+Djangae currently supports Django 4.2, 5.0 and 5.1, using Python 3.10+.
 
 Support for Django 1.11 / Python 2.7 lives in the `1.x` branch.
 

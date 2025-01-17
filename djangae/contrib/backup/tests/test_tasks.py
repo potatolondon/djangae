@@ -64,7 +64,7 @@ class GetValidExportModelsTestCase(TestCase):
 
         with sleuth.switch('django.apps.apps.get_models', mock_get_app_models):
             valid_models = _get_valid_export_kinds()
-            self.assertEquals(['foo'], valid_models)
+            self.assertEqual(['foo'], valid_models)
 
     @override_settings(DJANGAE_BACKUP_EXCLUDE_MODELS=['backup_logentry'])
     @sleuth.switch('django.apps.apps.get_models', mock_get_app_models)
@@ -75,7 +75,7 @@ class GetValidExportModelsTestCase(TestCase):
             'backup_mockuser',
             'backup_mockuser',
         ])
-        self.assertEquals(['backup_mockuser'], valid_models)
+        self.assertEqual(['backup_mockuser'], valid_models)
 
 
 class BackupTestCase(TestCase):

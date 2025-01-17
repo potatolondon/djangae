@@ -76,7 +76,7 @@ def unindex_document(document):
 
 def index_document(index_name, document):
 
-    assert(document.id)  # This should be a thing by now
+    assert (document.id)  # This should be a thing by now
 
     for field_name, field in document.get_fields().items():
         if field_name == "id":

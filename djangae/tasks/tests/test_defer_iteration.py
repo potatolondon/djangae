@@ -44,8 +44,8 @@ class DeferIntegerKeyModel(models.Model):
 def callback(instance, touch=True):
     shard_index = get_deferred_shard_index()
 
-    assert(shard_index >= 0)
-    assert(shard_index < 5)
+    assert (shard_index >= 0)
+    assert (shard_index < 5)
     if touch:
         instance.touched = True
     instance.save()

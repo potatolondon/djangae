@@ -57,5 +57,5 @@ class GetGcsBucketTest(TestCase):
 
             self.assertIsNone(bucket)
 
-            with self.assertRaisesRegexp(Exception, 'DJANGAE_BACKUP_GCS_BUCKET'):
+            with self.assertRaisesRegex(Exception, 'DJANGAE_BACKUP_GCS_BUCKET'):
                 get_gcs_bucket()

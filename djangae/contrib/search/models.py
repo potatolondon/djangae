@@ -77,8 +77,8 @@ class TokenFieldIndex(models.Model):
         return Document.objects.get(pk=self.document_id)
 
     def save(self, *args, **kwargs):
-        assert(self.token.strip())  # Check we're not indexing whitespace or nothing
-        assert(WORD_DOCUMENT_JOIN_STRING not in self.token)  # Don't index this special symbol
+        assert (self.token.strip())  # Check we're not indexing whitespace or nothing
+        assert (WORD_DOCUMENT_JOIN_STRING not in self.token)  # Don't index this special symbol
 
         orig_pk = self.pk
 
@@ -86,7 +86,7 @@ class TokenFieldIndex(models.Model):
             self.index_stats_id, self.token, self.field_name, self.document_id, self.revision
         )
         # Just check that we didn't *change* the PK
-        assert((orig_pk is None) or orig_pk == self.pk)
+        assert ((orig_pk is None) or orig_pk == self.pk)
         super().save(*args, **kwargs)
 
 

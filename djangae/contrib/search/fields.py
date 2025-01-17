@@ -131,7 +131,7 @@ class DateField(Field):
         if isinstance(value, str):
             return dateparse.parse_datetime(value)
 
-        assert(isinstance(value, datetime))
+        assert (isinstance(value, datetime))
 
         return value
 
