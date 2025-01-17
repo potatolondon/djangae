@@ -37,29 +37,29 @@ stages:
         changes:
           - docker_images/*
 
-prepare:python3.8:
-  extends: .prepare-image
-  variables:
-    IMAGE: python3.8
-
-prepare:python3.9:
-  extends: .prepare-image
-  variables:
-    IMAGE: python3.9
-
 prepare:python3.10:
   extends: .prepare-image
   variables:
     IMAGE: python3.10
 
+prepare:python3.11:
+  extends: .prepare-image
+  variables:
+    IMAGE: python3.11
+
+prepare:python3.12:
+  extends: .prepare-image
+  variables:
+    IMAGE: python3.12
+
 lint:python3:
-  image: $CI_REGISTRY_IMAGE:python3.8
+  image: $CI_REGISTRY_IMAGE:python3.12
   stage: lint
   script:
     - tox -e flake8
 
 test:pages:
-  image: python:3.9
+  image: python:3.12
   stage: test
   needs: []  # We can execute this out-of-order
   before_script:
@@ -73,89 +73,81 @@ test:pages:
   except:
   - master
 
-test:python3.8:django2.2:
- image: $CI_REGISTRY_IMAGE:python3.8
- stage: test
- before_script:
-   - source /root/google-cloud-sdk/path.bash.inc
- script:
-   - tox -e py38-dj22
-
-test:python3.8:django3.2:
- image: $CI_REGISTRY_IMAGE:python3.8
- stage: test
- before_script:
-   - source /root/google-cloud-sdk/path.bash.inc
- script:
-   - tox -e py38-dj32
-
-test:python3.8:django4.1:
- image: $CI_REGISTRY_IMAGE:python3.8
- stage: test
- before_script:
-   - source /root/google-cloud-sdk/path.bash.inc
- script:
-   - tox -e py38-dj41
-
-test:python3.9:django2.2:
- image: $CI_REGISTRY_IMAGE:python3.9
- stage: test
- before_script:
-   - source /root/google-cloud-sdk/path.bash.inc
- script:
-   - tox -e py39-dj22
-
-test:python3.9:django3.2:
- image: $CI_REGISTRY_IMAGE:python3.9
- stage: test
- before_script:
-   - source /root/google-cloud-sdk/path.bash.inc
- script:
-   - tox -e py39-dj32
-
-test:python3.9:django4.1:
- image: $CI_REGISTRY_IMAGE:python3.9
- stage: test
- before_script:
-   - source /root/google-cloud-sdk/path.bash.inc
- script:
-   - tox -e py39-dj41
-
-test:python3.10:django3.0:
+test:python3.10:django4.2:
  image: $CI_REGISTRY_IMAGE:python3.10
  stage: test
  before_script:
    - source /root/google-cloud-sdk/path.bash.inc
  script:
-   - tox -e py310-dj30
+   - tox -e py310-dj42 -- --settings=settings.test_settings
 
-test:python3.10:django3.1:
+test:python3.10:django5.0:
  image: $CI_REGISTRY_IMAGE:python3.10
  stage: test
  before_script:
    - source /root/google-cloud-sdk/path.bash.inc
  script:
-   - tox -e py310-dj31
+   - tox -e py310-dj50 -- --settings=settings.test_settings
 
-test:python3.10:django3.2:
+test:python3.10:django5.1:
  image: $CI_REGISTRY_IMAGE:python3.10
  stage: test
  before_script:
    - source /root/google-cloud-sdk/path.bash.inc
  script:
-   - tox -e py310-dj32
+   - tox -e py310-dj51 -- --settings=settings.test_settings
 
-test:python3.10:django4.1:
- image: $CI_REGISTRY_IMAGE:python3.10
+test:python3.11:django4.2:
+ image: $CI_REGISTRY_IMAGE:python3.11
  stage: test
  before_script:
    - source /root/google-cloud-sdk/path.bash.inc
  script:
-   - tox -e py310-dj41
+   - tox -e py311-dj42 -- --settings=settings.test_settings
+
+test:python3.11:django5.0:
+ image: $CI_REGISTRY_IMAGE:python3.11
+ stage: test
+ before_script:
+   - source /root/google-cloud-sdk/path.bash.inc
+ script:
+   - tox -e py311-dj50 -- --settings=settings.test_settings
+
+test:python3.11:django5.1:
+ image: $CI_REGISTRY_IMAGE:python3.11
+ stage: test
+ before_script:
+   - source /root/google-cloud-sdk/path.bash.inc
+ script:
+   - tox -e py311-dj51 -- --settings=settings.test_settings
+
+test:python3.12:django4.2:
+ image: $CI_REGISTRY_IMAGE:python3.12
+ stage: test
+ before_script:
+   - source /root/google-cloud-sdk/path.bash.inc
+ script:
+   - tox -e py312-dj42 -- --settings=settings.test_settings
+
+test:python3.12:django5.0:
+ image: $CI_REGISTRY_IMAGE:python3.12
+ stage: test
+ before_script:
+   - source /root/google-cloud-sdk/path.bash.inc
+ script:
+   - tox -e py312-dj50 -- --settings=settings.test_settings
+
+test:python3.12:django5.1:
+ image: $CI_REGISTRY_IMAGE:python3.12
+ stage: test
+ before_script:
+   - source /root/google-cloud-sdk/path.bash.inc
+ script:
+   - tox -e py312-dj51 -- --settings=settings.test_settings
 
 build and publish:
   stage: publish
-  image: python:3.8
+  image: python:3.12
   rules:
     - if: $CI_COMMIT_TAG
       when: manual
@@ -167,7 +159,7 @@ build and publish:
     - python -m twine upload --username=__token__ --password=$PROD_PYPI_TOKEN --repository-url https://upload.pypi.org/legacy/ dist/*
 
 pages:
-  image: python:3.9
+  image: python:3.12
   stage: publish
   needs: []
   before_script:
