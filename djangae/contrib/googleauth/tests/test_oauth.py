@@ -293,7 +293,7 @@ class OAuthScopesRequiredTests(TestCase):
         decorated_func = oauth_scopes_required(scopes=[])(func)
         response_mocked = decorated_func(request)
         self.assertFalse(func.called)
-        self.assertEquals(response_mocked.status_code, 302)
+        self.assertEqual(response_mocked.status_code, 302)
         self.assertTrue(reverse("googleauth_oauth2login") in response_mocked.url)
 
     def test_oauth_scopes_required_redirects_to_login_if_no_oauthsession(self):
@@ -311,7 +311,7 @@ class OAuthScopesRequiredTests(TestCase):
         decorated_func = oauth_scopes_required(scopes=[])(func)
         response_mocked = decorated_func(request)
         self.assertFalse(func.called)
-        self.assertEquals(response_mocked.status_code, 302)
+        self.assertEqual(response_mocked.status_code, 302)
         self.assertTrue(reverse("googleauth_oauth2login") in response_mocked.url)
 
     def test_oauth_scopes_required_redirects_for_additional_scopes(self):
@@ -332,7 +332,7 @@ class OAuthScopesRequiredTests(TestCase):
         request.session.save()
         self.assertFalse(func.called)
         # check we're redirecting to login url with the correct parameters
-        self.assertEquals(response_mocked.status_code, 302)
+        self.assertEqual(response_mocked.status_code, 302)
         self.assertTrue(reverse("googleauth_oauth2login") in response_mocked.url)
 
 

@@ -224,4 +224,4 @@ class AuthBackendTests(TestCase):
         self.middleware.process_request(self.request)
 
         # Logging out.
-        logout_mock.not_called()
+        logout_mock.assert_not_called()

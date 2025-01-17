@@ -11,12 +11,12 @@ class AvailablePortTests(TestCase):
     def test_get_next_available_port(self):
         url = "127.0.0.1"
         port = 8091
-        self.assertEquals(8091, get_next_available_port(url, port))
+        self.assertEqual(8091, get_next_available_port(url, port))
         with sleuth.switch(
             "djangae.utils.port_is_open",
             lambda *args, **kwargs: False if args[1] < 8095 else True
         ):
-            self.assertEquals(8095, get_next_available_port(url, port))
+            self.assertEqual(8095, get_next_available_port(url, port))
 
 
 class EnsureCreatedModel(models.Model):
