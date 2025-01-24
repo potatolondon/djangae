@@ -5,7 +5,7 @@ from .base import BaseBackend
 
 UserModel = get_user_model()
 
-class ModelBackend(BaseModelBackend, BaseBackend):
+class ModelBackend(BaseBackend, BaseModelBackend):
     """
     Authenticates against settings.AUTH_USER_MODEL.
     """
