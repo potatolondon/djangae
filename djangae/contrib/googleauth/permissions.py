@@ -57,3 +57,14 @@ class PermissionChoiceField(models.CharField):
         if kwargs.get("verbose_name"):
             del kwargs["verbose_name"]
         super().__init__(self, *args, **kwargs)
+
+    def deconstruct(self):
+        # Note, we do not call super() because that evaluates the choices when we don't
+        # need to and in some cases that causes a recursion error (presumably because we access apps)
+
+        name = self.name
+        path = "%s.%s" % (self.__class__.__module__, self.__class__.__qualname__)
+        args = []
+        kwargs = {}
+
+        return name, path, args, kwargs
