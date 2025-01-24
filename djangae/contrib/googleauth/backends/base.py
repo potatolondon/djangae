@@ -8,6 +8,7 @@
 import itertools
 from ..models import PermissionsMixin
 
+
 class BaseBackend:
     def authenticate(self, request, **kwargs):
         return None

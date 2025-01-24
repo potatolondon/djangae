@@ -5,6 +5,7 @@ from .base import BaseBackend
 
 UserModel = get_user_model()
 
+
 class ModelBackend(BaseBackend, BaseModelBackend):
     """
     Authenticates against settings.AUTH_USER_MODEL.
@@ -48,7 +49,6 @@ class ModelBackend(BaseBackend, BaseModelBackend):
         that attribute are allowed.
         """
         return getattr(user, "is_active", True)
-
 
     def has_module_perms(self, user_obj, app_label):
         """
