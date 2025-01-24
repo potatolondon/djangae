@@ -5,6 +5,8 @@
     Djangae project.
 """
 
+import itertools
+from ..models import PermissionsMixin
 
 class BaseBackend:
     def authenticate(self, request, **kwargs):
@@ -22,9 +24,15 @@ class BaseBackend:
         return None
 
     def get_user_permissions(self, user_obj, obj=None):
+        if isinstance(user_obj, PermissionsMixin):
+            return user_obj.user_permissions
+
         return set()
 
     def get_group_permissions(self, user_obj, obj=None):
+        if isinstance(user_obj, PermissionsMixin):
+            return set(itertools.chain(*[group.permissions for group in user_obj.groups.all()]))
+
         return set()
 
     def get_all_permissions(self, user_obj, obj=None):
@@ -34,4 +42,7 @@ class BaseBackend:
         }
 
     def has_perm(self, user_obj, perm, obj=None):
+        if not user_obj.is_active:
+            return False
+
         return perm in self.get_all_permissions(user_obj, obj=obj)
