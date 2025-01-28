@@ -34,7 +34,7 @@ DEFAULT_STORAGE_PORT = 10911
 
 DEFAULT_PROJECT_ID = "example"
 DEFAULT_GAE_APPLICATION = "e~{}".format(DEFAULT_PROJECT_ID)
-DEFAULT_BUCKET = "%s.appspot.com" % DEFAULT_PROJECT_ID
+DEFAULT_BUCKET = "{project_id}.appspot.com"
 
 logger = logging.getLogger(__name__)
 
@@ -223,7 +223,9 @@ def start_emulators(
 
         os.environ["STORAGE_EMULATOR_HOST"] = f"http://{SERVICE_HOST}:{storage_port}"
         command = "gcloud-storage-emulator start -q --port=%s --default-bucket=%s" % (
-            storage_port, DEFAULT_BUCKET)
+            storage_port,
+            DEFAULT_BUCKET.format(project_id=project_id),
+        )
 
         if storage_dir:
             command += " --data-dir=%s" % storage_dir
