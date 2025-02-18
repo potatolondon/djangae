@@ -43,7 +43,7 @@ def get_permission_choices():
 
 
 class PermissionChoiceIterator(object):
-    def __iter__(self):
+    def __call__(self):
         for perm in get_permission_choices():
             yield perm
 
