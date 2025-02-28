@@ -1,6 +1,7 @@
 # STANDARD LIB
 import hashlib
 import threading
+import time
 
 # THIRD PARTY
 from django.utils import timezone
@@ -208,3 +209,21 @@ class MemcacheLocksTestCase(TestCase):
         # And with the lock released the function should run
         my_lock.release()
         self.assertTrue(do_something())
+
+    def test_steal_without_waiting(self):
+        identifier = 'test_steal_without_waiting'
+
+        MemcacheLock.acquire(identifier)
+
+        time.sleep(0.1)
+
+        lock = MemcacheLock.acquire(identifier, wait=False, steal_after_ms=10)
+        self.assertIsNotNone(lock)
+
+    def test_steal_without_waiting_too_early(self):
+        identifier = 'test_steal_without_waiting_too_early'
+
+        MemcacheLock.acquire(identifier)
+
+        lock = MemcacheLock.acquire(identifier, wait=False, steal_after_ms=10)
+        self.assertIsNone(lock)

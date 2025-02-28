@@ -5,6 +5,7 @@ from datetime import datetime
 
 from django.conf import settings
 from django.core.cache import caches
+from django.core.cache.backends.base import BaseCache
 from django.core.cache.backends.db import BaseDatabaseCache
 from django.core.cache.backends.memcached import BaseMemcachedCache
 
@@ -26,22 +27,30 @@ class MemcacheLock(object):
     @classmethod
     def acquire(cls, identifier, wait=True, steal_after_ms=None):
         cache = _get_cache()
-        start_time = datetime.utcnow()
-        unique_value = random.randint(1, 100000)
+        unique_value = f'{random.randint(1, 100000)}|{datetime.utcnow().isoformat()}'
 
         while True:
-            acquired = cache.add(identifier, unique_value)
+            # Note that django-redis-cache's get_or_set implementation does not exactly follow the Django spec:
+            # https://github.com/sebleier/django-redis-cache/issues/127
+            # So we'll always use Django's base cache implemenation which will make the underlying `get` and `add`
+            # calls to the actual cache backend.
+            # If caller does't specify steal_after_ms, then the lock value will be cached indefinitely until released.
+            timeout = steal_after_ms / 1000 if steal_after_ms else None
+            cached_value = BaseCache.get_or_set(cache, identifier, unique_value, timeout=timeout)
+            acquired = cached_value == unique_value
             if acquired:
                 return cls(identifier, unique_value)
-            elif not wait:
-                return None
             else:
-                # We are waiting for the lock
-                if steal_after_ms and (datetime.utcnow() - start_time).total_seconds() * 1000 > steal_after_ms:
+                locked_at = datetime.fromisoformat(cached_value.split('|')[1])
+                if steal_after_ms and (datetime.utcnow() - locked_at).total_seconds() * 1000 > steal_after_ms:
                     # Steal anyway
                     cache.set(identifier, unique_value)
                     return cls(identifier, unique_value)
 
+                if not wait:
+                    return None
+
+                # We are waiting for the lock
                 time.sleep(0)
 
     def release(self):
