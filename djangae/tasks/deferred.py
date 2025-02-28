@@ -398,7 +398,7 @@ def _process_shard(
     if not marker.is_ready:
         defer(
             _process_shard, marker_id, shard_number, model, query, using, callback, finalize,
-            order_field,
+            order_field, version,
             args=args,
             kwargs=kwargs,
             _queue=queue,
@@ -501,6 +501,7 @@ def _process_shard(
             callback,
             finalize,
             order_field,
+            version,
             args=args,
             kwargs=kwargs,
             _queue=queue,
