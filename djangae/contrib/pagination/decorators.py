@@ -28,7 +28,12 @@ def generator(fields, instance):
                 # If value is a naive datetime, it will be assumed to be in local system timezone
                 # when made aware, before converting to utc. That matches Datastore behavior
                 # when using naive datetime.
-                value = value.astimezone(datetime.timezone.utc)
+                try:
+                    value = value.astimezone(datetime.timezone.utc)
+                except (OverflowError, ValueError):
+                    # Value is datetime.min or max, and is out of range for conversion.
+                    # Instead, just replace the timezone.
+                    value = value.replace(tzinfo=datetime.timezone.utc)
             value = value.isoformat()
 
         value = str(value)
