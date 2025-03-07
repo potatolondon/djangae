@@ -5,9 +5,7 @@ from django.db.models import Q
 
 from ..models import (
     AbstractGoogleUser,
-    Group,
     UserManager,
-    UserPermission,
 )
 from . import (
     _find_atomic_decorator,
@@ -103,4 +101,3 @@ class OAuthBackend(BaseBackend):
         except User.DoesNotExist:
             return None
         return user if self.user_can_authenticate(user) else None
-

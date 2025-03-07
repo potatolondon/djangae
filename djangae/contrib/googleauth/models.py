@@ -207,6 +207,14 @@ def object_id_for_model(entity: models.Model):
 
 
 class UserPermission(models.Model):
+    """
+        Model for storing permissions for a single object
+        e.g. user.has_perm("view_app.model", model_instance)
+
+        Supports any model_instance (but not arbitrary objects)
+        To disambiguate between different models, we store the
+        obj_id as a string, in the format <app_name>.<ModelName>__<model.pk>
+    """
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,

@@ -7,7 +7,6 @@
 
 import itertools
 
-from django.db import models
 from ..models import PermissionsMixin, UserPermission, object_id_for_model
 
 
@@ -35,7 +34,6 @@ class BaseBackend:
             if obj is not None:
 
                 obj_id = object_id_for_model(obj)
-                import ipdb; ipdb.sset_trace()
                 object_permissions = UserPermission.objects.filter(
                     user_id=user_obj.pk,
                     obj_id=obj_id,
