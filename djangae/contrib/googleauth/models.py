@@ -10,6 +10,7 @@ from django.core.mail import send_mail
 from django.db import models
 from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
+from gcloudc.db.models.fields.charfields import CharField
 from gcloudc.db.models.fields.iterable import SetField
 from gcloudc.db.models.fields.json import JSONField
 from gcloudc.db.models.fields.related import RelatedSetField
@@ -192,6 +193,19 @@ class AnonymousUser:
         return self.username
 
 
+def object_id_for_model(entity: models.Model):
+    """
+        Converts an object to a unique id, to be
+        used for individual object permissions
+    """
+    if (not isinstance(entity, models.Model)):
+        raise TypeError("obj must be a Django model.")
+
+    label = entity._meta.app_label
+    name = entity._meta.model.__name__
+    return f"{label}.{name}__{entity.pk}"
+
+
 class UserPermission(models.Model):
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL,
@@ -199,7 +213,25 @@ class UserPermission(models.Model):
         related_name="permissions"
     )
     permission = PermissionChoiceField()
-    obj_id = models.PositiveIntegerField()
+    obj_id = CharField(editable=False)
+
+    def __init__(self, *args, **kwargs) -> None:
+        obj = kwargs.pop("obj", None)
+        super().__init__(*args, **kwargs)
+
+        if obj:
+            self.obj = obj
+
+    @property
+    def obj(self):
+        return None
+
+    @obj.setter
+    def obj(self, entity):
+        self.obj_id = object_id_for_model(entity)
+
+    def save(self, *args, **kwargs) -> None:
+        return super().save(*args, **kwargs)
 
 
 class Group(models.Model):
@@ -239,7 +271,7 @@ class PermissionsMixin(models.Model):
     )
 
     user_permissions = SetField(
-        PermissionChoiceField,
+        PermissionChoiceField(),
         verbose_name=_("user permissions"),
         blank=True,
         help_text=_("Specific permissions for this user."),

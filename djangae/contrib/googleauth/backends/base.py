@@ -6,7 +6,9 @@
 """
 
 import itertools
-from ..models import PermissionsMixin
+
+from django.db import models
+from ..models import PermissionsMixin, UserPermission, object_id_for_model
 
 
 class BaseBackend:
@@ -25,13 +27,33 @@ class BaseBackend:
         return None
 
     def get_user_permissions(self, user_obj, obj=None):
+        """
+            Returns a set of permission strings that the user has directly.
+            If obj is passed, only returns the permissions for this specific object.
+        """
         if isinstance(user_obj, PermissionsMixin):
+            if obj is not None:
+
+                obj_id = object_id_for_model(obj)
+                import ipdb; ipdb.sset_trace()
+                object_permissions = UserPermission.objects.filter(
+                    user_id=user_obj.pk,
+                    obj_id=obj_id,
+                ).values_list("permission")
+
+                return set(*object_permissions)
             return user_obj.user_permissions
 
         return set()
 
     def get_group_permissions(self, user_obj, obj=None):
-        if isinstance(user_obj, PermissionsMixin):
+        """
+            Returns a set of permission strings that the user has directly.
+            If obj is passed, only returns the permissions for this specific object.
+
+            TODO: obj permissions, currently returns None instead
+        """
+        if isinstance(user_obj, PermissionsMixin) and obj is None:
             return set(itertools.chain(*[group.permissions for group in user_obj.groups.all()]))
 
         return set()
