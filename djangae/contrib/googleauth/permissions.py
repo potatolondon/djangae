@@ -1,4 +1,6 @@
+from django import forms
 from django.forms import ValidationError
+from django.forms.widgets import Select
 from django.apps import apps
 from django.conf import settings
 from django.db import models
@@ -14,7 +16,6 @@ def get_permission_choices():
         for users. Defaults are the same as Django
         (https://docs.djangoproject.com/en/3.0/topics/auth/default/#default-permissions)
     """
-
     if len(ALL_PERMISSIONS) == 0:
         DEFAULT_PERMISSIONS = ("add", "change", "delete", "view")
         GLOBAL_PERMISSIONS = tuple(
@@ -61,6 +62,30 @@ class PermissionChoiceField(models.CharField):
         validators.append(_permission_choice_validator)
         kwargs["validators"] = validators
         super().__init__(self, *args, **kwargs)
+
+    def formfield(self, **kwargs):
+        defaults = {
+            "choices": get_permission_choices,
+            "widget": Select,
+        }
+        defaults.update(kwargs)
+        for k in list(defaults):
+            if k not in (
+                "coerce",
+                "empty_value",
+                "choices",
+                "required",
+                "label",
+                "initial",
+                "help_text",
+                "error_messages",
+                "show_hidden_initial",
+                "disabled",
+                "form_class",
+            ):
+                del defaults[k]
+        # Intentionally not calling super() here as otherwise we lose the "choices"
+        return forms.ChoiceField(**defaults)
 
     def deconstruct(self):
         # Note, we do not call super() because that evaluates the choices when we don't
