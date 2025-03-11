@@ -1,9 +1,13 @@
+from django import forms
+from django.forms import ValidationError
+from django.forms.widgets import Select
 from django.apps import apps
 from django.conf import settings
 from django.db import models
 
-
 CUSTOM_PERMISSIONS = getattr(settings, "GOOGLEAUTH_CUSTOM_PERMISSIONS", {})
+
+ALL_PERMISSIONS = []
 
 
 def get_permission_choices():
@@ -12,48 +16,84 @@ def get_permission_choices():
         for users. Defaults are the same as Django
         (https://docs.djangoproject.com/en/3.0/topics/auth/default/#default-permissions)
     """
+    if len(ALL_PERMISSIONS) == 0:
+        DEFAULT_PERMISSIONS = ("add", "change", "delete", "view")
+        GLOBAL_PERMISSIONS = tuple(
+            list(DEFAULT_PERMISSIONS) + list(CUSTOM_PERMISSIONS.get('__all__', []))
+        )
 
-    DEFAULT_PERMISSIONS = ("add", "change", "delete", "view")
-    GLOBAL_PERMISSIONS = tuple(
-        list(DEFAULT_PERMISSIONS) + list(CUSTOM_PERMISSIONS.get('__all__', []))
-    )
+        result = []
 
-    result = []
+        for app in apps.get_app_configs():
+            for model in app.get_models():
+                model_name = model.__name__
+                app_model = "%s.%s" % (model._meta.app_label, model_name)
 
-    for app in apps.get_app_configs():
-        for model in app.get_models():
-            model_name = model.__name__
-            app_model = "%s.%s" % (model._meta.app_label, model_name)
+                codenames = list(GLOBAL_PERMISSIONS) + list(CUSTOM_PERMISSIONS.get(app_model, []))
 
-            codenames = list(GLOBAL_PERMISSIONS) + list(CUSTOM_PERMISSIONS.get(app_model, []))
-
-            for permission in codenames:
-                result.append(
-                    (
-                        "%s.%s_%s" % (
-                            model._meta.app_label,
-                            permission,
-                            model_name.lower()
-                        ),
-                        "Can %s %s.%s" % (permission, model._meta.app_label, model_name)
+                for permission in codenames:
+                    result.append(
+                        (
+                            "%s.%s_%s" % (
+                                model._meta.app_label,
+                                permission,
+                                model_name.lower()
+                            ),
+                            "Can %s %s.%s" % (permission, model._meta.app_label, model_name)
+                        )
                     )
-                )
 
-    return result
+        ALL_PERMISSIONS.extend(result)
+    return ALL_PERMISSIONS
 
 
-class PermissionChoiceIterator(object):
-    def __iter__(self):
-        for perm in get_permission_choices():
-            yield perm
+def _permission_choice_validator(choice):
+    if choice is not None:
+        if choice not in [value for value, _ in get_permission_choices()]:
+            raise ValidationError(
+                f"'{choice}' is not a valid permission.",
+            )
 
 
 class PermissionChoiceField(models.CharField):
     def __init__(self, *args, **kwargs):
         kwargs["max_length"] = 150
-        kwargs["choices"] = PermissionChoiceIterator()
-        # FIXME: for some reason, we're receiving two times verbose_name
-        # and this is causing the method to fail
-        if kwargs.get("verbose_name"):
-            del kwargs["verbose_name"]
+        validators = kwargs.pop("validators", [])
+        validators.append(_permission_choice_validator)
+        kwargs["validators"] = validators
         super().__init__(self, *args, **kwargs)
+
+    def formfield(self, **kwargs):
+        defaults = {
+            "choices": get_permission_choices,
+            "widget": Select,
+        }
+        defaults.update(kwargs)
+        for k in list(defaults):
+            if k not in (
+                "coerce",
+                "empty_value",
+                "choices",
+                "required",
+                "label",
+                "initial",
+                "help_text",
+                "error_messages",
+                "show_hidden_initial",
+                "disabled",
+                "form_class",
+            ):
+                del defaults[k]
+        # Intentionally not calling super() here as otherwise we lose the "choices"
+        return forms.ChoiceField(**defaults)
+
+    def deconstruct(self):
+        # Note, we do not call super() because that evaluates the choices when we don't
+        # need to and in some cases that causes a recursion error (presumably because we access apps)
+
+        name = self.name
+        path = "%s.%s" % (self.__class__.__module__, self.__class__.__qualname__)
+        args = []
+        kwargs = {}
+
+        return name, path, args, kwargs

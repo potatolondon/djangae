@@ -5,9 +5,7 @@ from django.db.models import Q
 
 from ..models import (
     AbstractGoogleUser,
-    Group,
     UserManager,
-    UserPermission,
 )
 from . import (
     _find_atomic_decorator,
@@ -103,21 +101,3 @@ class OAuthBackend(BaseBackend):
         except User.DoesNotExist:
             return None
         return user if self.user_can_authenticate(user) else None
-
-    def get_user_permissions(self, user_obj, obj=None):
-        qs = UserPermission.objects.filter(
-            user_id=user_obj.pk
-        ).values_list("permission", flat=True)
-
-        if obj:
-            qs = qs.filter(obj_id=obj.pk)
-
-        return list(qs)
-
-    def get_group_permissions(self, user_obj, obj=None):
-        perms = set()
-        qs = Group.objects.filter(users__contains=user_obj)
-        for group in qs:
-            perms.update(group.permissions)
-
-        return list(perms)

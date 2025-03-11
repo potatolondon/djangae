@@ -12,6 +12,7 @@ are as follows:
  - Built for the Google Cloud Datastore rather than SQL
  - Permissions are not stored in the database, but are instead generated from apps + models. This avoids M2M relationships
    that wouldn't work well on the Datastore, but sacrifices the ability to create Permissions dynamically.
+ - The exception is object-specific permissions, which are handled via the UserPermission object
 
 
 ## Installation and Configuration
