@@ -62,3 +62,7 @@ testapp/libs
 testprodapp/.storage
 testprodapp/libs/*
 !testprodapp/libs/djangae
+
+# generated during tests
+settings/.iap-credentials
+settings/djangaeidx.yaml

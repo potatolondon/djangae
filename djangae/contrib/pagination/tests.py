@@ -1,3 +1,5 @@
+import datetime
+
 from django.core import paginator as django_paginator
 from django.db import models
 
@@ -42,6 +44,14 @@ class TestUser(models.Model):
 ])
 class SimpleModelWithoutOrdering(models.Model):
     name = models.CharField(max_length=200)
+
+
+@paginated_model(orderings=[
+    ("date",),
+    "pk",  # it's possible to order by the model pk
+])
+class SimpleModelWithDate(models.Model):
+    date = models.DateTimeField()
 
 
 class SimpleModelWithOrdering(SimpleModelWithoutOrdering):
@@ -228,3 +238,14 @@ class DatastorePaginatorTests(TestCase):
 
         paginator = Paginator(TestUser.objects.all().order_by("-first_name"), 1)
         self.assertEqual(paginator.page(5).object_list, [])
+
+    def test_min_max_date_page(self):
+
+        d1 = SimpleModelWithDate.objects.create(id=2, date=datetime.datetime.min)
+        d2 = SimpleModelWithDate.objects.create(id=3, date=datetime.datetime.min)
+        d3 = SimpleModelWithDate.objects.create(id=1, date=datetime.datetime.max)
+
+        paginator = Paginator(SimpleModelWithDate.objects.all().order_by("date"), 1)
+        self.assertEqual(d1, paginator.page(1).object_list[0])
+        self.assertEqual(d2, paginator.page(2).object_list[0])
+        self.assertEqual(d3, paginator.page(3).object_list[0])
