@@ -103,7 +103,7 @@ class DjangaeLoggingHandler(CloudLoggingHandler):
     """
 
     def __init__(self, *args, **kwargs):
-        global _client_store
+        global _client_store # noqa
 
         if _DJANGAE_MIDDLEWARE_NAME not in settings.MIDDLEWARE:
             raise ImproperlyConfigured(
