@@ -86,7 +86,11 @@ class DeferTests(TestCase):
         a = DeferModelA.objects.create(b=b)
         a.b  # Make sure we access it
 
-        cache_name = DeferModelA._meta.get_field("b").cache_name
+        try:
+            cache_name = DeferModelA._meta.get_field("b").cache_name
+        except AttributeError:
+            cache_name = DeferModelA._meta.get_field("b").get_cache_name()
+
         self.assertTrue(getattr(a, cache_name))
 
         defer(assert_cache_wiped, a)
